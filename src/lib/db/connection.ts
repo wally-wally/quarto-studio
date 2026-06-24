@@ -23,3 +23,12 @@ export function openAppDatabase() {
   ensureDocumentSchema(singleton);
   return singleton;
 }
+
+export function closeAppDatabase() {
+  if (!singleton) {
+    return;
+  }
+
+  singleton.close();
+  singleton = null;
+}
