@@ -33,6 +33,10 @@ function assertDocument(
   return document;
 }
 
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function createDocumentService({
   repository,
   renderDocument = renderDocumentToHtml,
@@ -59,12 +63,17 @@ export function createDocumentService({
       const savedDocument = repository.updateDocument(input);
 
       repository.markRendering(savedDocument.id);
-      const result = await renderDocument(savedDocument);
 
-      if (result.ok) {
-        repository.markRenderSuccess(savedDocument.id, result.html);
-      } else {
-        repository.markRenderError(savedDocument.id, result.error);
+      try {
+        const result = await renderDocument(savedDocument);
+
+        if (result.ok) {
+          repository.markRenderSuccess(savedDocument.id, result.html);
+        } else {
+          repository.markRenderError(savedDocument.id, result.error);
+        }
+      } catch (error) {
+        repository.markRenderError(savedDocument.id, toErrorMessage(error));
       }
 
       const latestDocument = assertDocument(

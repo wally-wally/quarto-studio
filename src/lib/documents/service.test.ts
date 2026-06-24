@@ -222,4 +222,47 @@ describe("document service", () => {
       }),
     ]);
   });
+
+  it("렌더러 예외를 렌더링 오류로 저장하고 최신 workspace를 반환한다", async () => {
+    const repository = createMockRepository([
+      createDocument({
+        renderedHtml: "<h1>Previous Success</h1>",
+        renderedAt: "2026-06-24T00:30:00.000Z",
+      }),
+    ]);
+    const renderDocument = vi.fn(async (): Promise<RenderResult> => {
+      throw new Error("failed to create temp dir");
+    });
+    const service = createDocumentService({ repository, renderDocument });
+
+    const workspace = await service.renderDocument({
+      id: "doc-1",
+      title: "IO Failure Report",
+      slug: "io-failure-report",
+      content: "# IO Failure",
+      executeCode: false,
+    });
+
+    expect(repository.updateDocument).toHaveBeenCalledBefore(repository.markRendering);
+    expect(repository.markRenderError).toHaveBeenCalledWith(
+      "doc-1",
+      "failed to create temp dir",
+    );
+    expect(repository.markRenderSuccess).not.toHaveBeenCalled();
+    expect(workspace.activeDocument).toEqual(
+      expect.objectContaining({
+        id: "doc-1",
+        title: "IO Failure Report",
+        renderStatus: "error",
+        renderedHtml: "<h1>Previous Success</h1>",
+        renderError: "failed to create temp dir",
+      }),
+    );
+    expect(workspace.documents).toEqual([
+      expect.objectContaining({
+        id: "doc-1",
+        renderStatus: "error",
+      }),
+    ]);
+  });
 });
