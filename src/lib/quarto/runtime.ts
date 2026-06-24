@@ -28,11 +28,14 @@ export function runProcess(
     };
 
     const timeout = setTimeout(() => {
+      const capturedStderr = Buffer.concat(stderr).toString("utf8").trimEnd();
+      const timeoutMessage = `Render timed out after ${options.timeoutMs}ms`;
+
       child.kill("SIGTERM");
       finish({
         code: 124,
         stdout: Buffer.concat(stdout).toString("utf8"),
-        stderr: `Process timed out after ${options.timeoutMs}ms`,
+        stderr: [capturedStderr, timeoutMessage].filter(Boolean).join("\n"),
       });
     }, options.timeoutMs);
 

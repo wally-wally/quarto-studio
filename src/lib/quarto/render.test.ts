@@ -2,24 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import type { DocumentRecord } from "../documents/types";
 import { renderDocumentToHtml } from "./render";
 
-function buildDocumentRecord(
-  overrides: Partial<DocumentRecord> = {},
-): DocumentRecord {
-  return {
-    id: "doc-1",
-    title: "Quarterly Report",
-    slug: "quarterly-report",
-    content: "# Quarterly Report\n\n```{r}\n1 + 1\n```",
-    executeCode: false,
-    renderStatus: "idle",
-    renderedHtml: null,
-    renderError: null,
-    createdAt: "2026-06-24T00:00:00.000Z",
-    updatedAt: "2026-06-24T00:00:00.000Z",
-    renderedAt: null,
-    ...overrides,
-  };
-}
+const baseDocument: DocumentRecord = {
+  id: "doc-1",
+  title: "Quarterly Report",
+  slug: "quarterly-report",
+  content: "# Quarterly Report\n\n```{r}\n1 + 1\n```",
+  executeCode: false,
+  renderStatus: "idle",
+  renderedHtml: null,
+  renderError: null,
+  createdAt: "2026-06-24T00:00:00.000Z",
+  updatedAt: "2026-06-24T00:00:00.000Z",
+  renderedAt: null,
+};
 
 describe("renderDocumentToHtml", () => {
   it("Quarto 프로젝트 파일을 쓰고 HTML 렌더링 결과를 반환한다", async () => {
@@ -30,7 +25,7 @@ describe("renderDocumentToHtml", () => {
       stderr: "",
     });
 
-    const result = await renderDocumentToHtml(buildDocumentRecord(), {
+    const result = await renderDocumentToHtml({ ...baseDocument }, {
       createTempDir: async () => "/tmp/quarto-studio-test",
       writeFile: async (filePath, content) => {
         writtenFiles.set(filePath, content);
@@ -63,7 +58,7 @@ describe("renderDocumentToHtml", () => {
   });
 
   it("Quarto 프로세스 실패를 렌더링 실패 결과로 변환한다", async () => {
-    const result = await renderDocumentToHtml(buildDocumentRecord(), {
+    const result = await renderDocumentToHtml({ ...baseDocument }, {
       createTempDir: async () => "/tmp/quarto-studio-test",
       writeFile: vi.fn(),
       readFile: vi.fn(),
