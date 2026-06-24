@@ -1,0 +1,34 @@
+export type RenderStatus = "idle" | "rendering" | "success" | "error";
+
+export type DocumentRecord = {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  executeCode: boolean;
+  renderStatus: RenderStatus;
+  renderedHtml: string | null;
+  renderError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  renderedAt: string | null;
+};
+
+export type DocumentSummary = Pick<
+  DocumentRecord,
+  | "id"
+  | "title"
+  | "slug"
+  | "executeCode"
+  | "renderStatus"
+  | "updatedAt"
+  | "renderedAt"
+>;
+
+export type SaveDocumentInput = {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  executeCode: boolean;
+};
