@@ -12,13 +12,41 @@ export function runProcess(
   options: { cwd: string; timeoutMs: number },
 ): Promise<ProcessResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd: options.cwd });
+    const useProcessGroup = process.platform !== "win32";
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      detached: useProcessGroup,
+    });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     const timeoutMessage = `Render timed out after ${options.timeoutMs}ms`;
     let settled = false;
     let timedOut = false;
     let killTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const isAlreadyExitedError = (error: unknown) =>
+      (error as NodeJS.ErrnoException).code === "ESRCH";
+
+    const signalProcess = (signal: NodeJS.Signals) => {
+      if (useProcessGroup && child.pid) {
+        try {
+          process.kill(-child.pid, signal);
+          return;
+        } catch (error) {
+          if (isAlreadyExitedError(error)) {
+            return;
+          }
+        }
+      }
+
+      try {
+        child.kill(signal);
+      } catch (error) {
+        if (!isAlreadyExitedError(error)) {
+          return;
+        }
+      }
+    };
 
     const finish = (result: ProcessResult) => {
       if (settled) {
@@ -36,9 +64,9 @@ export function runProcess(
     const timeout = setTimeout(() => {
       timedOut = true;
 
-      child.kill("SIGTERM");
+      signalProcess("SIGTERM");
       killTimer = setTimeout(() => {
-        child.kill("SIGKILL");
+        signalProcess("SIGKILL");
       }, 500);
     }, options.timeoutMs);
 
