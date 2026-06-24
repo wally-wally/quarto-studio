@@ -63,17 +63,24 @@ export function createDocumentService({
       const savedDocument = repository.updateDocument(input);
 
       repository.markRendering(savedDocument.id);
+      let result: RenderResult;
 
       try {
-        const result = await renderDocument(savedDocument);
-
-        if (result.ok) {
-          repository.markRenderSuccess(savedDocument.id, result.html);
-        } else {
-          repository.markRenderError(savedDocument.id, result.error);
-        }
+        result = await renderDocument(savedDocument);
       } catch (error) {
         repository.markRenderError(savedDocument.id, toErrorMessage(error));
+        const latestDocument = assertDocument(
+          repository.getDocument(savedDocument.id),
+          savedDocument.id,
+        );
+
+        return buildWorkspace(latestDocument);
+      }
+
+      if (result.ok) {
+        repository.markRenderSuccess(savedDocument.id, result.html);
+      } else {
+        repository.markRenderError(savedDocument.id, result.error);
       }
 
       const latestDocument = assertDocument(

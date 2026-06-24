@@ -223,6 +223,38 @@ describe("document service", () => {
     ]);
   });
 
+  it("렌더링 성공 상태 저장 오류는 렌더링 오류로 대체하지 않고 전파한다", async () => {
+    const repository = createMockRepository([createDocument()]);
+    repository.markRenderSuccess.mockImplementationOnce(() => {
+      throw new Error("database unavailable");
+    });
+    const renderDocument = vi.fn(
+      async (): Promise<RenderResult> => ({
+        ok: true,
+        html: "<h1>Rendered</h1>",
+        log: "rendered",
+      }),
+    );
+    const service = createDocumentService({ repository, renderDocument });
+
+    await expect(
+      service.renderDocument({
+        id: "doc-1",
+        title: "Quarterly Report",
+        slug: "quarterly-report",
+        content: "# Quarterly Report",
+        executeCode: false,
+      }),
+    ).rejects.toThrow("database unavailable");
+
+    expect(renderDocument).toHaveBeenCalledOnce();
+    expect(repository.markRenderSuccess).toHaveBeenCalledWith(
+      "doc-1",
+      "<h1>Rendered</h1>",
+    );
+    expect(repository.markRenderError).not.toHaveBeenCalled();
+  });
+
   it("렌더러 예외를 렌더링 오류로 저장하고 최신 workspace를 반환한다", async () => {
     const repository = createMockRepository([
       createDocument({
