@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 
+const KILL_ESCALATION_DELAY_MS = 100;
+
 export type ProcessResult = {
   code: number;
   stdout: string;
@@ -55,8 +57,9 @@ export function runProcess(
 
       settled = true;
       clearTimeout(timeout);
-      if (killTimer) {
+      if (killTimer && !timedOut) {
         clearTimeout(killTimer);
+        killTimer = null;
       }
       resolve(result);
     };
@@ -66,8 +69,9 @@ export function runProcess(
 
       signalProcess("SIGTERM");
       killTimer = setTimeout(() => {
+        killTimer = null;
         signalProcess("SIGKILL");
-      }, 500);
+      }, KILL_ESCALATION_DELAY_MS);
     }, options.timeoutMs);
 
     child.stdout.on("data", (chunk: Buffer) => {

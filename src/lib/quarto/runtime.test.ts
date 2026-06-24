@@ -47,7 +47,9 @@ describe("runProcess", () => {
     expect(result.stderr).toContain("timed out");
   });
 
-  it("timeout이 발생하면 하위 프로세스까지 종료한다", async () => {
+  const itOnPosix = process.platform === "win32" ? it.skip : it;
+
+  itOnPosix("timeout이 발생하면 SIGTERM을 무시하는 하위 프로세스까지 SIGKILL로 종료한다", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "quarto-runtime-"));
     const heartbeatPath = path.join(tempDir, "heartbeat");
     const childPidPath = path.join(tempDir, "child.pid");
@@ -56,6 +58,7 @@ describe("runProcess", () => {
       "const fs = require('node:fs');",
       "const heartbeatPath = process.argv[1];",
       "const childPidPath = process.argv[2];",
+      "process.on('SIGTERM', () => {});",
       "fs.writeFileSync(childPidPath, String(process.pid));",
       "const writeHeartbeat = () => fs.writeFileSync(heartbeatPath, String(Date.now()));",
       "writeHeartbeat();",
@@ -63,10 +66,19 @@ describe("runProcess", () => {
     ].join(" ");
     const parentCode = [
       "const { spawn } = require('node:child_process');",
+      "const fs = require('node:fs');",
       `const childCode = ${JSON.stringify(childCode)};`,
       "const [heartbeatPath, childPidPath] = process.argv.slice(1);",
       "spawn(process.execPath, ['-e', childCode, heartbeatPath, childPidPath], { stdio: 'ignore' });",
-      "setInterval(() => {}, 1000);",
+      "const waitForChild = () => {",
+      "  if (fs.existsSync(heartbeatPath) && fs.existsSync(childPidPath)) {",
+      "    process.stdout.write('child ready\\n');",
+      "    setInterval(() => {}, 1000);",
+      "    return;",
+      "  }",
+      "  setTimeout(waitForChild, 10);",
+      "};",
+      "waitForChild();",
     ].join(" ");
 
     let childPid: number | null = null;
@@ -75,13 +87,14 @@ describe("runProcess", () => {
       const result = await runProcess(
         process.execPath,
         ["-e", parentCode, heartbeatPath, childPidPath],
-        { cwd: process.cwd(), timeoutMs: 150 },
+        { cwd: process.cwd(), timeoutMs: 600 },
       );
 
+      expect(result.stdout).toContain("child ready");
       childPid = Number(await fs.readFile(childPidPath, "utf8"));
-      await wait(200);
+      await wait(120);
       const before = await fs.stat(heartbeatPath);
-      await wait(200);
+      await wait(120);
       const after = await fs.stat(heartbeatPath);
 
       expect(result.code).toBe(124);
