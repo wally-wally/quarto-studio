@@ -14,3 +14,4 @@ out/
 *.db
 *.db-shm
 *.db-wal
+*.tsbuildinfo
