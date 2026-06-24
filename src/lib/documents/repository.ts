@@ -87,6 +87,15 @@ export function createDocumentRepository(db: Database.Database) {
   const selectAll = db.prepare<[], DocumentRow>(
     "select * from documents order by updated_at desc"
   );
+  const getDocument = (id: string): DocumentRecord | null => {
+    const row = selectById.get(id);
+    return row ? toDocument(row) : null;
+  };
+  const assertDocumentChanged = (changes: number, id: string) => {
+    if (changes === 0) {
+      throw new Error(`Document not found: ${id}`);
+    }
+  };
 
   return {
     listDocuments(): DocumentSummary[] {
@@ -94,8 +103,7 @@ export function createDocumentRepository(db: Database.Database) {
     },
 
     getDocument(id: string): DocumentRecord | null {
-      const row = selectById.get(id);
-      return row ? toDocument(row) : null;
+      return getDocument(id);
     },
 
     getOrCreateSeedDocument(): DocumentRecord {
@@ -145,7 +153,13 @@ export function createDocumentRepository(db: Database.Database) {
       const updatedAt = nowIso();
       db.prepare(`
         update documents
-        set title = ?, slug = ?, content = ?, execute_code = ?, updated_at = ?
+        set title = ?,
+            slug = ?,
+            content = ?,
+            execute_code = ?,
+            render_status = 'idle',
+            render_error = null,
+            updated_at = ?
         where id = ?
       `).run(
         input.title,
@@ -156,7 +170,7 @@ export function createDocumentRepository(db: Database.Database) {
         input.id
       );
 
-      const saved = this.getDocument(input.id);
+      const saved = getDocument(input.id);
       if (!saved) {
         throw new Error(`Document not found: ${input.id}`);
       }
@@ -164,9 +178,10 @@ export function createDocumentRepository(db: Database.Database) {
     },
 
     markRendering(id: string): void {
-      db.prepare(
+      const result = db.prepare(
         "update documents set render_status = 'rendering', render_error = null where id = ?"
       ).run(id);
+      assertDocumentChanged(result.changes, id);
     },
 
     markRenderSuccess(
@@ -174,17 +189,19 @@ export function createDocumentRepository(db: Database.Database) {
       renderedHtml: string,
       renderedAt = nowIso()
     ): void {
-      db.prepare(`
+      const result = db.prepare(`
         update documents
         set render_status = 'success', rendered_html = ?, render_error = null, rendered_at = ?
         where id = ?
       `).run(renderedHtml, renderedAt, id);
+      assertDocumentChanged(result.changes, id);
     },
 
     markRenderError(id: string, renderError: string): void {
-      db.prepare(
+      const result = db.prepare(
         "update documents set render_status = 'error', render_error = ? where id = ?"
       ).run(renderError, id);
+      assertDocumentChanged(result.changes, id);
     }
   };
 }
