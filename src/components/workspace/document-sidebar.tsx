@@ -23,13 +23,22 @@ export function DocumentSidebar({
     <aside className="document-sidebar" aria-label="문서 목록">
       <div className="sidebar-header">
         <span>문서함</span>
-        <button className="icon-button" type="button" aria-label="새 문서">
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="새 문서 준비 중"
+          disabled
+        >
           <FilePlus size={16} aria-hidden="true" />
         </button>
       </div>
       <label className="search-field">
         <Search size={15} aria-hidden="true" />
-        <input aria-label="문서 검색" placeholder="문서 검색" />
+        <input
+          aria-label="문서 검색 준비 중"
+          placeholder="문서 검색"
+          readOnly
+        />
       </label>
       <div className="document-list">
         {documents.map((document) => (

@@ -100,6 +100,16 @@ input {
   cursor: pointer;
 }
 
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.ghost-button:focus-visible,
+.icon-button:focus-visible,
+.toggle-button:focus-visible,
+.document-item:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button {
@@ -132,6 +142,11 @@ input {
 .ghost-button:disabled {
   cursor: wait;
   opacity: 0.62;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .workspace-grid {
@@ -188,6 +203,11 @@ input {
 
 .search-field input::placeholder {
   color: #8da7c1;
+}
+
+.search-field:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.24);
 }
 
 .document-list {
@@ -292,6 +312,12 @@ input {
   font-size: 12px;
 }
 
+.title-input:focus-visible,
+.slug-input:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 3px;
+}
+
 .pane-actions {
   gap: 8px;
 }
@@ -322,6 +348,11 @@ input {
     monospace;
   font-size: 13px;
   line-height: 32px;
+}
+
+.qmd-editor:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: -2px;
 }
 
 .preview-frame {

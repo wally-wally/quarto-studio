@@ -52,8 +52,21 @@ export function QuartoWorkspace({
     });
   };
 
+  const hasDraftChanges =
+    draft.title !== workspace.activeDocument.title ||
+    draft.slug !== workspace.activeDocument.slug ||
+    draft.content !== workspace.activeDocument.content ||
+    draft.executeCode !== workspace.activeDocument.executeCode;
+
   const handleSelectDocument = (documentId: string) => {
+    if (documentId === draft.id) {
+      return;
+    }
+
     startTransition(async () => {
+      if (hasDraftChanges) {
+        await saveDocument(actionInput);
+      }
       applyWorkspace(await selectDocument(documentId));
     });
   };
