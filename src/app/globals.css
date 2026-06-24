@@ -139,9 +139,18 @@ input {
 
 .primary-button:disabled,
 .secondary-button:disabled,
-.ghost-button:disabled {
+.ghost-button:disabled,
+.toggle-button:disabled,
+.document-item:disabled {
   cursor: wait;
   opacity: 0.62;
+}
+
+.title-input:disabled,
+.slug-input:disabled,
+.qmd-editor:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .icon-button:disabled {
@@ -384,6 +393,24 @@ input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     monospace;
   font-size: 12px;
+}
+
+.workspace-action-error {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10;
+  max-width: min(460px, calc(100vw - 36px));
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  background: #fff1f2;
+  color: #9f1239;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  font-size: 13px;
 }
 
 @media (max-width: 980px) {

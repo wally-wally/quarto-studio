@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Database, Server } from "lucide-react";
+import { AlertCircle, Database, Server } from "lucide-react";
 import { normalizeSlug } from "@/lib/documents/slug";
 import type { SaveDocumentInput } from "@/lib/documents/types";
 import { DocumentSidebar } from "./document-sidebar";
@@ -28,6 +28,7 @@ export function QuartoWorkspace({
 }: QuartoWorkspaceProps) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [draft, setDraft] = useState(initialWorkspace.activeDocument);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const actionInput = useMemo<SaveDocumentInput>(
@@ -46,9 +47,17 @@ export function QuartoWorkspace({
     setDraft(nextWorkspace.activeDocument);
   };
 
+  const toActionErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+
   const runWorkspaceAction = (action: WorkspaceAction) => {
+    setActionError(null);
     startTransition(async () => {
-      applyWorkspace(await action(actionInput));
+      try {
+        applyWorkspace(await action(actionInput));
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
     });
   };
 
@@ -63,11 +72,16 @@ export function QuartoWorkspace({
       return;
     }
 
+    setActionError(null);
     startTransition(async () => {
-      if (hasDraftChanges) {
-        await saveDocument(actionInput);
+      try {
+        if (hasDraftChanges) {
+          await saveDocument(actionInput);
+        }
+        applyWorkspace(await selectDocument(documentId));
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
       }
-      applyWorkspace(await selectDocument(documentId));
     });
   };
 
@@ -94,6 +108,7 @@ export function QuartoWorkspace({
         <DocumentSidebar
           documents={workspace.documents}
           activeDocumentId={draft.id}
+          isBusy={isPending}
           onSelectDocument={handleSelectDocument}
         />
         <EditorPane
@@ -123,6 +138,12 @@ export function QuartoWorkspace({
           onRender={() => runWorkspaceAction(renderDocument)}
         />
       </div>
+      {actionError ? (
+        <div className="workspace-action-error" role="alert">
+          <AlertCircle size={16} aria-hidden="true" />
+          <span>작업을 완료하지 못했습니다: {actionError}</span>
+        </div>
+      ) : null}
     </main>
   );
 }

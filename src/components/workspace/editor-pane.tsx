@@ -34,12 +34,14 @@ export function EditorPane({
           <input
             aria-label="문서 제목"
             className="title-input"
+            disabled={isBusy}
             value={title}
             onChange={(event) => onTitleChange(event.target.value)}
           />
           <input
             aria-label="문서 slug"
             className="slug-input"
+            disabled={isBusy}
             value={slug}
             onChange={(event) => onSlugChange(event.target.value)}
           />
@@ -49,6 +51,7 @@ export function EditorPane({
             aria-label="코드 실행"
             aria-checked={executeCode}
             className="toggle-button"
+            disabled={isBusy}
             role="switch"
             type="button"
             onClick={() => onExecuteCodeChange(!executeCode)}
@@ -83,6 +86,7 @@ export function EditorPane({
       <textarea
         aria-label="QMD content"
         className="qmd-editor"
+        disabled={isBusy}
         spellCheck={false}
         value={content}
         onChange={(event) => onContentChange(event.target.value)}

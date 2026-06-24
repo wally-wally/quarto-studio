@@ -4,6 +4,7 @@ import type { DocumentSummary } from "@/lib/documents/types";
 type DocumentSidebarProps = {
   documents: DocumentSummary[];
   activeDocumentId: string;
+  isBusy: boolean;
   onSelectDocument: (documentId: string) => void;
 };
 
@@ -17,6 +18,7 @@ const statusLabel: Record<DocumentSummary["renderStatus"], string> = {
 export function DocumentSidebar({
   documents,
   activeDocumentId,
+  isBusy,
   onSelectDocument
 }: DocumentSidebarProps) {
   return (
@@ -48,6 +50,7 @@ export function DocumentSidebar({
             }`}
             key={document.id}
             type="button"
+            disabled={isBusy}
             onClick={() => onSelectDocument(document.id)}
           >
             <strong>{document.title}</strong>

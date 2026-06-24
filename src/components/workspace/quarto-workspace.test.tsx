@@ -41,6 +41,17 @@ const workspace: WorkspaceState = {
 };
 
 describe("QuartoWorkspace", () => {
+  const createDeferred = <T,>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+      resolve = promiseResolve;
+      reject = promiseReject;
+    });
+
+    return { promise, resolve, reject };
+  };
+
   it("문서 목록, 에디터, preview를 한 화면에 보여준다", () => {
     render(
       <QuartoWorkspace
@@ -124,6 +135,82 @@ describe("QuartoWorkspace", () => {
         content: "# 분기 리뷰"
       })
     );
+  });
+
+  it("저장 또는 렌더링이 진행 중이면 draft 입력과 문서 이동을 잠가 최신 로컬 수정을 막는다", async () => {
+    const user = userEvent.setup();
+    const renderDeferred = createDeferred<WorkspaceState>();
+    const renderDocument = vi.fn(() => renderDeferred.promise);
+
+    render(
+      <QuartoWorkspace
+        initialWorkspace={workspace}
+        saveDocument={vi.fn()}
+        renderDocument={renderDocument}
+        selectDocument={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "렌더" }));
+
+    expect(screen.getByLabelText("문서 제목")).toBeDisabled();
+    expect(screen.getByLabelText("문서 slug")).toBeDisabled();
+    expect(screen.getByLabelText("QMD content")).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "코드 실행" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /운영 리포트/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "미리보기 다시 렌더" })
+    ).toBeDisabled();
+
+    renderDeferred.resolve(workspace);
+  });
+
+  it("저장 액션이 실패하면 한국어 안내와 오류 메시지를 alert로 보여준다", async () => {
+    const user = userEvent.setup();
+    const saveDocument = vi.fn(async () => {
+      throw new Error("database unavailable");
+    });
+
+    render(
+      <QuartoWorkspace
+        initialWorkspace={workspace}
+        saveDocument={saveDocument}
+        renderDocument={vi.fn()}
+        selectDocument={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "작업을 완료하지 못했습니다: database unavailable"
+    );
+  });
+
+  it("문서 이동 전 자동 저장이 실패하면 오류를 표시하고 대상 문서를 선택하지 않는다", async () => {
+    const user = userEvent.setup();
+    const saveDocument = vi.fn(async () => {
+      throw new Error("database unavailable");
+    });
+    const selectDocument = vi.fn(async () => workspace);
+
+    render(
+      <QuartoWorkspace
+        initialWorkspace={workspace}
+        saveDocument={saveDocument}
+        renderDocument={vi.fn()}
+        selectDocument={selectDocument}
+      />
+    );
+
+    await user.clear(screen.getByLabelText("문서 제목"));
+    await user.type(screen.getByLabelText("문서 제목"), "수정한 문서");
+    await user.click(screen.getByRole("button", { name: /운영 리포트/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "작업을 완료하지 못했습니다: database unavailable"
+    );
+    expect(selectDocument).not.toHaveBeenCalled();
   });
 
   it("draft를 수정한 뒤 다른 문서를 선택하면 현재 draft를 먼저 저장하고 대상 문서를 선택한다", async () => {
