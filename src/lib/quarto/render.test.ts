@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DocumentRecord } from "../documents/types";
-import { renderDocumentToHtml } from "./render";
+import { parseRenderTimeoutMs, renderDocumentToHtml } from "./render";
 
 const baseDocument: DocumentRecord = {
   id: "doc-1",
@@ -76,5 +76,20 @@ describe("renderDocumentToHtml", () => {
       error: "syntax error",
       log: "syntax error",
     });
+  });
+});
+
+describe("parseRenderTimeoutMs", () => {
+  it("유효하지 않은 timeout 환경값은 기본값으로 대체한다", () => {
+    expect(parseRenderTimeoutMs(undefined)).toBe(15000);
+    expect(parseRenderTimeoutMs("")).toBe(15000);
+    expect(parseRenderTimeoutMs("0")).toBe(15000);
+    expect(parseRenderTimeoutMs("-1")).toBe(15000);
+    expect(parseRenderTimeoutMs("not-a-number")).toBe(15000);
+    expect(parseRenderTimeoutMs("Infinity")).toBe(15000);
+  });
+
+  it("양의 finite timeout 환경값은 숫자로 사용한다", () => {
+    expect(parseRenderTimeoutMs("30000")).toBe(30000);
   });
 });

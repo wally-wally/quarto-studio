@@ -15,7 +15,10 @@ export function runProcess(
     const child = spawn(command, args, { cwd: options.cwd });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
+    const timeoutMessage = `Render timed out after ${options.timeoutMs}ms`;
     let settled = false;
+    let timedOut = false;
+    let killTimer: ReturnType<typeof setTimeout> | null = null;
 
     const finish = (result: ProcessResult) => {
       if (settled) {
@@ -24,19 +27,19 @@ export function runProcess(
 
       settled = true;
       clearTimeout(timeout);
+      if (killTimer) {
+        clearTimeout(killTimer);
+      }
       resolve(result);
     };
 
     const timeout = setTimeout(() => {
-      const capturedStderr = Buffer.concat(stderr).toString("utf8").trimEnd();
-      const timeoutMessage = `Render timed out after ${options.timeoutMs}ms`;
+      timedOut = true;
 
       child.kill("SIGTERM");
-      finish({
-        code: 124,
-        stdout: Buffer.concat(stdout).toString("utf8"),
-        stderr: [capturedStderr, timeoutMessage].filter(Boolean).join("\n"),
-      });
+      killTimer = setTimeout(() => {
+        child.kill("SIGKILL");
+      }, 500);
     }, options.timeoutMs);
 
     child.stdout.on("data", (chunk: Buffer) => {
@@ -56,10 +59,14 @@ export function runProcess(
     });
 
     child.on("close", (code) => {
+      const capturedStderr = Buffer.concat(stderr).toString("utf8");
+
       finish({
-        code: code ?? 1,
+        code: timedOut ? 124 : (code ?? 1),
         stdout: Buffer.concat(stdout).toString("utf8"),
-        stderr: Buffer.concat(stderr).toString("utf8"),
+        stderr: timedOut
+          ? [capturedStderr.trimEnd(), timeoutMessage].filter(Boolean).join("\n")
+          : capturedStderr,
       });
     });
   });

@@ -26,6 +26,22 @@ type RenderDependencies = {
   timeoutMs: number;
 };
 
+const DEFAULT_RENDER_TIMEOUT_MS = 15000;
+
+export function parseRenderTimeoutMs(value: string | undefined): number {
+  if (!value || value.trim() === "") {
+    return DEFAULT_RENDER_TIMEOUT_MS;
+  }
+
+  const timeoutMs = Number(value);
+
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return DEFAULT_RENDER_TIMEOUT_MS;
+  }
+
+  return timeoutMs;
+}
+
 function createDefaultDependencies(): RenderDependencies {
   return {
     createTempDir: () => fs.mkdtemp(path.join(os.tmpdir(), "quarto-studio-")),
@@ -33,7 +49,7 @@ function createDefaultDependencies(): RenderDependencies {
     readFile: (filePath) => fs.readFile(filePath, "utf8"),
     removeDir: (dirPath) => fs.rm(dirPath, { recursive: true, force: true }),
     runProcess: runRuntimeProcess,
-    timeoutMs: Number(process.env.QUARTO_RENDER_TIMEOUT_MS ?? 15000),
+    timeoutMs: parseRenderTimeoutMs(process.env.QUARTO_RENDER_TIMEOUT_MS),
   };
 }
 
