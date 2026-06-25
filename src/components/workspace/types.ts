@@ -1,6 +1,9 @@
 import type {
+  CreateDocumentInput,
+  DeleteDocumentInput,
   DocumentRecord,
   DocumentSummary,
+  RenameDocumentInput,
   SaveDocumentInput
 } from "@/lib/documents/types";
 
@@ -15,4 +18,16 @@ export type WorkspaceAction = (
 
 export type SelectDocumentAction = (
   documentId: string
+) => Promise<WorkspaceState>;
+
+export type CreateDocumentAction = (
+  input: CreateDocumentInput
+) => Promise<WorkspaceState>;
+
+export type RenameDocumentAction = (
+  input: RenameDocumentInput
+) => Promise<WorkspaceState>;
+
+export type DeleteDocumentAction = (
+  input: DeleteDocumentInput
 ) => Promise<WorkspaceState>;

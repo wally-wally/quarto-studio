@@ -105,7 +105,10 @@ input {
 .ghost-button:focus-visible,
 .icon-button:focus-visible,
 .toggle-button:focus-visible,
-.document-item:focus-visible {
+.document-title-button:focus-visible,
+.document-action-button:focus-visible,
+.document-edit-form input:focus-visible,
+.sidebar-field input:focus-visible {
   outline: 2px solid #38bdf8;
   outline-offset: 2px;
 }
@@ -141,7 +144,8 @@ input {
 .secondary-button:disabled,
 .ghost-button:disabled,
 .toggle-button:disabled,
-.document-item:disabled {
+.document-title-button:disabled,
+.document-action-button:disabled {
   cursor: wait;
   opacity: 0.62;
 }
@@ -165,6 +169,7 @@ input {
 }
 
 .document-sidebar {
+  position: relative;
   min-width: 0;
   padding: 14px;
   background: #102a4a;
@@ -229,23 +234,39 @@ input {
   width: 100%;
   border: 1px solid transparent;
   border-radius: 7px;
-  padding: 10px;
+  padding: 8px;
   display: grid;
-  gap: 4px;
-  text-align: left;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+}
+
+.document-title-button,
+.document-action-button {
+  border: 0;
+  background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
-.document-item strong,
-.document-item span {
+.document-title-button {
+  min-width: 0;
+  padding: 2px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.document-title-button strong,
+.document-title-button span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.document-item span {
+.document-title-button span {
   color: #8da7c1;
   font-size: 12px;
 }
@@ -256,8 +277,124 @@ input {
   color: #142033;
 }
 
-.document-item.active span {
+.document-item.active .document-title-button span {
   color: #58708a;
+}
+
+.document-actions,
+.document-edit-form,
+.sidebar-dialog-actions,
+.sidebar-dialog-header {
+  display: flex;
+  align-items: center;
+}
+
+.document-actions {
+  gap: 4px;
+}
+
+.document-action-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: #a9c3dd;
+}
+
+.document-item.active .document-action-button {
+  color: #40617f;
+}
+
+.document-action-button:hover:not(:disabled),
+.document-title-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.document-item.active .document-action-button:hover:not(:disabled),
+.document-item.active .document-title-button:hover:not(:disabled) {
+  background: #e4eef9;
+}
+
+.document-action-button.danger:hover:not(:disabled) {
+  color: #fecaca;
+}
+
+.document-item.active .document-action-button.danger:hover:not(:disabled) {
+  color: #b91c1c;
+}
+
+.document-edit-form {
+  min-width: 0;
+  gap: 4px;
+}
+
+.document-edit-form input,
+.sidebar-field input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #bdd1e8;
+  border-radius: 6px;
+  outline: 0;
+  background: #ffffff;
+  color: #142033;
+}
+
+.document-edit-form input {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.sidebar-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  padding: 56px 14px 14px;
+  background: rgba(5, 18, 34, 0.74);
+  backdrop-filter: blur(4px);
+}
+
+.sidebar-dialog {
+  border: 1px solid #cfe0f5;
+  border-radius: 8px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  background: #f8fbff;
+  color: #142033;
+  box-shadow: 0 18px 36px rgba(2, 8, 23, 0.28);
+}
+
+.sidebar-dialog-header {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-dialog h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.sidebar-field {
+  display: grid;
+  gap: 6px;
+  color: #315170;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.sidebar-field input {
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 640;
+}
+
+.sidebar-dialog-actions {
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .workspace-pane {

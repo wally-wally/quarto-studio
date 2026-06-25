@@ -8,6 +8,9 @@ import { DocumentSidebar } from "./document-sidebar";
 import { EditorPane } from "./editor-pane";
 import { PreviewPane } from "./preview-pane";
 import type {
+  CreateDocumentAction,
+  DeleteDocumentAction,
+  RenameDocumentAction,
   SelectDocumentAction,
   WorkspaceAction,
   WorkspaceState
@@ -18,13 +21,19 @@ type QuartoWorkspaceProps = {
   saveDocument: WorkspaceAction;
   renderDocument: WorkspaceAction;
   selectDocument: SelectDocumentAction;
+  createDocument: CreateDocumentAction;
+  renameDocument: RenameDocumentAction;
+  deleteDocument: DeleteDocumentAction;
 };
 
 export function QuartoWorkspace({
   initialWorkspace,
   saveDocument,
   renderDocument,
-  selectDocument
+  selectDocument,
+  createDocument,
+  renameDocument,
+  deleteDocument
 }: QuartoWorkspaceProps) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [draft, setDraft] = useState(initialWorkspace.activeDocument);
@@ -67,6 +76,12 @@ export function QuartoWorkspace({
     draft.content !== workspace.activeDocument.content ||
     draft.executeCode !== workspace.activeDocument.executeCode;
 
+  const saveDraftIfNeeded = async () => {
+    if (hasDraftChanges) {
+      await saveDocument(actionInput);
+    }
+  };
+
   const handleSelectDocument = (documentId: string) => {
     if (documentId === draft.id) {
       return;
@@ -79,6 +94,55 @@ export function QuartoWorkspace({
           await saveDocument(actionInput);
         }
         applyWorkspace(await selectDocument(documentId));
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
+    });
+  };
+
+  const handleCreateDocument = (title: string) => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        await saveDraftIfNeeded();
+        applyWorkspace(await createDocument({ title }));
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
+    });
+  };
+
+  const handleRenameDocument = (documentId: string, title: string) => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        await saveDraftIfNeeded();
+        applyWorkspace(
+          await renameDocument({
+            id: documentId,
+            title,
+            activeDocumentId: draft.id
+          })
+        );
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
+    });
+  };
+
+  const handleDeleteDocument = (documentId: string) => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        if (hasDraftChanges && documentId !== draft.id) {
+          await saveDocument(actionInput);
+        }
+        applyWorkspace(
+          await deleteDocument({
+            id: documentId,
+            activeDocumentId: draft.id
+          })
+        );
       } catch (error) {
         setActionError(toActionErrorMessage(error));
       }
@@ -110,6 +174,9 @@ export function QuartoWorkspace({
           activeDocumentId={draft.id}
           isBusy={isPending}
           onSelectDocument={handleSelectDocument}
+          onCreateDocument={handleCreateDocument}
+          onRenameDocument={handleRenameDocument}
+          onDeleteDocument={handleDeleteDocument}
         />
         <EditorPane
           title={draft.title}

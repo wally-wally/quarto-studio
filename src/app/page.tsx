@@ -1,7 +1,10 @@
 import { QuartoWorkspace } from "@/components/workspace/quarto-workspace";
 import { createAppDocumentService } from "@/lib/db/app-service";
 import {
+  createDocumentAction,
+  deleteDocumentAction,
   renderDocumentAction,
+  renameDocumentAction,
   saveDocumentAction,
   selectDocumentAction
 } from "./actions";
@@ -17,6 +20,9 @@ export default function HomePage() {
       saveDocument={saveDocumentAction}
       renderDocument={renderDocumentAction}
       selectDocument={selectDocumentAction}
+      createDocument={createDocumentAction}
+      renameDocument={renameDocumentAction}
+      deleteDocument={deleteDocumentAction}
     />
   );
 }
