@@ -209,7 +209,7 @@ export function createDocumentRepository(db: Database.Database) {
         title,
         slug: createUniqueSlug(title, id),
         content: createDefaultContent(title),
-        executeCode: false,
+        executeCode: true,
         renderStatus: "idle",
         renderedHtml: null,
         renderError: null,

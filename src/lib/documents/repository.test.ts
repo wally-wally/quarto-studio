@@ -100,6 +100,7 @@ describe("document repository", () => {
     expect(created.title).toBe("새 분석 문서");
     expect(created.slug).toMatch(/^document-/);
     expect(created.content).toContain('title: "새 분석 문서"');
+    expect(created.executeCode).toBe(true);
     expect(created.renderStatus).toBe("idle");
     expect(repository.getDocument(created.id)?.content).toContain(
       "# 새 분석 문서"
