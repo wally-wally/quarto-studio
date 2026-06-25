@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
 import Database from "better-sqlite3";
-import type { DocumentRecord, DocumentSummary, SaveDocumentInput } from "./types";
+import { normalizeSlug } from "./slug";
+import type {
+  CreateDocumentInput,
+  DocumentRecord,
+  DocumentSummary,
+  RenameDocumentInput,
+  SaveDocumentInput
+} from "./types";
 
 type DocumentRow = {
   id: string;
@@ -29,6 +36,32 @@ format: html
 코드 실행은 기본적으로 꺼져 있습니다.
 :::
 `;
+
+function normalizeTitle(title: string) {
+  const normalizedTitle = title.trim().replace(/\s+/g, " ");
+  if (normalizedTitle.length === 0) {
+    throw new Error("Document title is required");
+  }
+  return normalizedTitle;
+}
+
+function escapeYamlDoubleQuoted(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function createDefaultContent(title: string) {
+  return `---
+title: "${escapeYamlDoubleQuoted(title)}"
+format:
+  html:
+    toc: true
+---
+
+# ${title}
+
+새 Quarto 문서를 작성해보세요.
+`;
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -84,6 +117,9 @@ export function createDocumentRepository(db: Database.Database) {
   const selectById = db.prepare<[string], DocumentRow>(
     "select * from documents where id = ?"
   );
+  const selectBySlug = db.prepare<[string], DocumentRow>(
+    "select * from documents where slug = ?"
+  );
   const selectAll = db.prepare<[], DocumentRow>(
     "select * from documents order by updated_at desc"
   );
@@ -95,6 +131,38 @@ export function createDocumentRepository(db: Database.Database) {
     if (changes === 0) {
       throw new Error(`Document not found: ${id}`);
     }
+  };
+  const createUniqueSlug = (title: string, id: string) => {
+    const baseSlug = normalizeSlug(title, `document-${id.slice(0, 8)}`);
+    let candidate = baseSlug;
+    let suffix = 2;
+
+    while (selectBySlug.get(candidate)) {
+      candidate = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+
+    return candidate;
+  };
+  const insertDocument = (document: DocumentRecord) => {
+    db.prepare(`
+      insert into documents (
+        id, title, slug, content, execute_code, render_status,
+        rendered_html, render_error, created_at, updated_at, rendered_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      document.id,
+      document.title,
+      document.slug,
+      document.content,
+      document.executeCode ? 1 : 0,
+      document.renderStatus,
+      document.renderedHtml,
+      document.renderError,
+      document.createdAt,
+      document.updatedAt,
+      document.renderedAt
+    );
   };
 
   return {
@@ -127,26 +195,56 @@ export function createDocumentRepository(db: Database.Database) {
         renderedAt: null
       };
 
-      db.prepare(`
-        insert into documents (
-          id, title, slug, content, execute_code, render_status,
-          rendered_html, render_error, created_at, updated_at, rendered_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        document.id,
-        document.title,
-        document.slug,
-        document.content,
-        document.executeCode ? 1 : 0,
-        document.renderStatus,
-        document.renderedHtml,
-        document.renderError,
-        document.createdAt,
-        document.updatedAt,
-        document.renderedAt
-      );
+      insertDocument(document);
 
       return document;
+    },
+
+    createDocument(input: CreateDocumentInput): DocumentRecord {
+      const id = crypto.randomUUID();
+      const title = normalizeTitle(input.title);
+      const timestamp = nowIso();
+      const document: DocumentRecord = {
+        id,
+        title,
+        slug: createUniqueSlug(title, id),
+        content: createDefaultContent(title),
+        executeCode: false,
+        renderStatus: "idle",
+        renderedHtml: null,
+        renderError: null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        renderedAt: null
+      };
+
+      insertDocument(document);
+      return document;
+    },
+
+    renameDocument(
+      input: Pick<RenameDocumentInput, "id" | "title">
+    ): DocumentRecord {
+      const title = normalizeTitle(input.title);
+      const updatedAt = nowIso();
+      const result = db.prepare(`
+        update documents
+        set title = ?,
+            updated_at = ?
+        where id = ?
+      `).run(title, updatedAt, input.id);
+      assertDocumentChanged(result.changes, input.id);
+
+      const renamed = getDocument(input.id);
+      if (!renamed) {
+        throw new Error(`Document not found: ${input.id}`);
+      }
+      return renamed;
+    },
+
+    deleteDocument(id: string): void {
+      const result = db.prepare("delete from documents where id = ?").run(id);
+      assertDocumentChanged(result.changes, id);
     },
 
     updateDocument(input: SaveDocumentInput): DocumentRecord {

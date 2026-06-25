@@ -32,3 +32,18 @@ export type SaveDocumentInput = {
   content: string;
   executeCode: boolean;
 };
+
+export type CreateDocumentInput = {
+  title: string;
+};
+
+export type RenameDocumentInput = {
+  id: string;
+  title: string;
+  activeDocumentId: string;
+};
+
+export type DeleteDocumentInput = {
+  id: string;
+  activeDocumentId: string;
+};

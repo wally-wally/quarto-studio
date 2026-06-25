@@ -91,6 +91,49 @@ describe("document repository", () => {
     expect(repository.getDocument(document.id)?.content).toBe("# Destructured");
   });
 
+  it("새 문서를 생성할 때 제목 기반 기본 콘텐츠와 고유 slug를 저장한다", () => {
+    const { db, repository } = openMemoryRepository();
+    databases.push(db);
+
+    const created = repository.createDocument({ title: "새 분석 문서" });
+
+    expect(created.title).toBe("새 분석 문서");
+    expect(created.slug).toMatch(/^document-/);
+    expect(created.content).toContain('title: "새 분석 문서"');
+    expect(created.renderStatus).toBe("idle");
+    expect(repository.getDocument(created.id)?.content).toContain(
+      "# 새 분석 문서"
+    );
+  });
+
+  it("같은 영문 제목으로 문서를 만들면 slug suffix를 붙인다", () => {
+    const { db, repository } = openMemoryRepository();
+    databases.push(db);
+
+    const second = repository.createDocument({ title: "Quarterly Report" });
+    const third = repository.createDocument({ title: "Quarterly Report" });
+
+    expect(second.slug).toBe("quarterly-report");
+    expect(third.slug).toBe("quarterly-report-2");
+  });
+
+  it("문서 제목만 수정하고 문서를 삭제한다", () => {
+    const { db, repository } = openMemoryRepository();
+    databases.push(db);
+    const created = repository.createDocument({ title: "원본 제목" });
+
+    const renamed = repository.renameDocument({
+      id: created.id,
+      title: "수정된 제목"
+    });
+    repository.deleteDocument(created.id);
+
+    expect(renamed.title).toBe("수정된 제목");
+    expect(renamed.slug).toBe(created.slug);
+    expect(renamed.content).toBe(created.content);
+    expect(repository.getDocument(created.id)).toBeNull();
+  });
+
   it("렌더링 성공과 실패 상태를 저장한다", () => {
     const { db, repository } = openMemoryRepository();
     databases.push(db);
