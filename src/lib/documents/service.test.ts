@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { RenderResult } from "@/lib/quarto/render";
 import { createDocumentService } from "./service";
 import type {
+  CreateDocumentInput,
+  DeleteDocumentInput,
   DocumentRecord,
   DocumentSummary,
+  RenameDocumentInput,
   SaveDocumentInput,
 } from "./types";
 
@@ -80,6 +83,38 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
 
       return { ...updated };
     }),
+    createDocument: vi.fn((input: CreateDocumentInput) => {
+      const document = createDocument({
+        id: `doc-${documents.size + 1}`,
+        title: input.title,
+        slug: input.title.toLowerCase().replace(/\s+/g, "-"),
+        content: `# ${input.title}`,
+        updatedAt: "2026-06-24T01:00:00.000Z",
+      });
+      documents.set(document.id, document);
+
+      return { ...document };
+    }),
+    renameDocument: vi.fn((input: Pick<RenameDocumentInput, "id" | "title">) => {
+      const existing = documents.get(input.id);
+      if (!existing) {
+        throw new Error(`Document not found: ${input.id}`);
+      }
+
+      const renamed: DocumentRecord = {
+        ...existing,
+        title: input.title,
+        updatedAt: "2026-06-24T01:00:00.000Z",
+      };
+      documents.set(input.id, renamed);
+
+      return { ...renamed };
+    }),
+    deleteDocument: vi.fn((id: DeleteDocumentInput["id"]) => {
+      if (!documents.delete(id)) {
+        throw new Error(`Document not found: ${id}`);
+      }
+    }),
     markRendering: vi.fn((id: string) => {
       const existing = documents.get(id);
       if (!existing) {
@@ -125,6 +160,114 @@ describe("document service", () => {
     expect(repository.listDocuments).toHaveBeenCalledOnce();
     expect(workspace.activeDocument).toEqual(seedDocument);
     expect(workspace.documents).toEqual([toSummary(seedDocument)]);
+  });
+
+  it("새 문서를 만들면 생성된 문서를 active document로 반환한다", () => {
+    const repository = createMockRepository([createDocument()]);
+    const service = createDocumentService({ repository });
+
+    const workspace = service.createDocument({ title: "새 문서" });
+
+    expect(repository.createDocument).toHaveBeenCalledWith({ title: "새 문서" });
+    expect(workspace.activeDocument).toEqual(
+      expect.objectContaining({
+        id: "doc-2",
+        title: "새 문서",
+      }),
+    );
+    expect(workspace.documents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "doc-2", title: "새 문서" }),
+      ]),
+    );
+  });
+
+  it("active 문서의 제목을 수정하면 같은 문서를 active로 유지한다", () => {
+    const repository = createMockRepository([createDocument()]);
+    const service = createDocumentService({ repository });
+
+    const workspace = service.renameDocument({
+      id: "doc-1",
+      title: "수정된 제목",
+      activeDocumentId: "doc-1",
+    });
+
+    expect(repository.renameDocument).toHaveBeenCalledWith({
+      id: "doc-1",
+      title: "수정된 제목",
+    });
+    expect(workspace.activeDocument).toEqual(
+      expect.objectContaining({
+        id: "doc-1",
+        title: "수정된 제목",
+      }),
+    );
+  });
+
+  it("비활성 문서의 제목을 수정하면 기존 active 문서를 유지한다", () => {
+    const activeDocument = createDocument();
+    const sidebarDocument = createDocument({
+      id: "doc-2",
+      title: "Sidebar Note",
+      slug: "sidebar-note",
+    });
+    const repository = createMockRepository([activeDocument, sidebarDocument]);
+    const service = createDocumentService({ repository });
+
+    const workspace = service.renameDocument({
+      id: "doc-2",
+      title: "목록에서 수정",
+      activeDocumentId: "doc-1",
+    });
+
+    expect(workspace.activeDocument).toEqual(activeDocument);
+    expect(workspace.documents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "doc-2", title: "목록에서 수정" }),
+      ]),
+    );
+  });
+
+  it("active 문서를 삭제하면 목록의 다음 문서를 active로 선택한다", () => {
+    const firstDocument = createDocument();
+    const nextDocument = createDocument({
+      id: "doc-2",
+      title: "Next Document",
+      slug: "next-document",
+      updatedAt: "2026-06-24T00:30:00.000Z",
+    });
+    const repository = createMockRepository([firstDocument, nextDocument]);
+    const service = createDocumentService({ repository });
+
+    const workspace = service.deleteDocument({
+      id: "doc-1",
+      activeDocumentId: "doc-1",
+    });
+
+    expect(repository.deleteDocument).toHaveBeenCalledWith("doc-1");
+    expect(workspace.activeDocument).toEqual(nextDocument);
+    expect(workspace.documents).toEqual([toSummary(nextDocument)]);
+  });
+
+  it("마지막 문서를 삭제하면 새 기본 문서를 만들어 active로 반환한다", () => {
+    const repository = createMockRepository([createDocument()]);
+    const service = createDocumentService({ repository });
+
+    const workspace = service.deleteDocument({
+      id: "doc-1",
+      activeDocumentId: "doc-1",
+    });
+
+    expect(repository.createDocument).toHaveBeenCalledWith({ title: "새 문서" });
+    expect(workspace.activeDocument).toEqual(
+      expect.objectContaining({
+        id: "doc-1",
+        title: "새 문서",
+      }),
+    );
+    expect(workspace.documents).toEqual([
+      expect.objectContaining({ id: "doc-1", title: "새 문서" }),
+    ]);
   });
 
   it("렌더링 전에 문서를 저장하고 성공 HTML을 workspace에 저장한다", async () => {

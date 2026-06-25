@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createDocumentAction,
+  deleteDocumentAction,
   renderDocumentAction,
+  renameDocumentAction,
   saveDocumentAction,
   selectDocumentAction,
 } from "./actions";
 import { createAppDocumentService } from "@/lib/db/app-service";
 import { revalidatePath } from "next/cache";
-import type { SaveDocumentInput } from "@/lib/documents/types";
+import type {
+  CreateDocumentInput,
+  DeleteDocumentInput,
+  RenameDocumentInput,
+  SaveDocumentInput,
+} from "@/lib/documents/types";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -22,6 +30,18 @@ const documentInput: SaveDocumentInput = {
   slug: "draft",
   content: "# Draft",
   executeCode: false,
+};
+const createInput: CreateDocumentInput = {
+  title: "새 문서",
+};
+const renameInput: RenameDocumentInput = {
+  id: "doc-1",
+  title: "수정된 제목",
+  activeDocumentId: "doc-1",
+};
+const deleteInput: DeleteDocumentInput = {
+  id: "doc-1",
+  activeDocumentId: "doc-1",
 };
 
 const workspace = {
@@ -50,6 +70,9 @@ const workspace = {
 const service = {
   getInitialWorkspace: vi.fn(),
   getWorkspace: vi.fn(),
+  createDocument: vi.fn(),
+  renameDocument: vi.fn(),
+  deleteDocument: vi.fn(),
   saveDocument: vi.fn(),
   renderDocument: vi.fn(),
 };
@@ -69,6 +92,33 @@ describe("document server actions", () => {
     await expect(saveDocumentAction(documentInput)).resolves.toBe(workspace);
 
     expect(service.saveDocument).toHaveBeenCalledWith(documentInput);
+    expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
+  it("문서 생성 action은 workspace를 반환하고 루트 경로를 revalidate한다", async () => {
+    service.createDocument.mockReturnValue(workspace);
+
+    await expect(createDocumentAction(createInput)).resolves.toBe(workspace);
+
+    expect(service.createDocument).toHaveBeenCalledWith(createInput);
+    expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
+  it("문서 제목 수정 action은 workspace를 반환하고 루트 경로를 revalidate한다", async () => {
+    service.renameDocument.mockReturnValue(workspace);
+
+    await expect(renameDocumentAction(renameInput)).resolves.toBe(workspace);
+
+    expect(service.renameDocument).toHaveBeenCalledWith(renameInput);
+    expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
+  it("문서 삭제 action은 workspace를 반환하고 루트 경로를 revalidate한다", async () => {
+    service.deleteDocument.mockReturnValue(workspace);
+
+    await expect(deleteDocumentAction(deleteInput)).resolves.toBe(workspace);
+
+    expect(service.deleteDocument).toHaveBeenCalledWith(deleteInput);
     expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 

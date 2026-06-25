@@ -1,11 +1,21 @@
 import type { RenderResult } from "@/lib/quarto/render";
 import { renderDocumentToHtml } from "@/lib/quarto/render";
-import type { DocumentRecord, DocumentSummary, SaveDocumentInput } from "./types";
+import type {
+  CreateDocumentInput,
+  DeleteDocumentInput,
+  DocumentRecord,
+  DocumentSummary,
+  RenameDocumentInput,
+  SaveDocumentInput,
+} from "./types";
 
 type DocumentRepository = {
   listDocuments(): DocumentSummary[];
   getDocument(id: string): DocumentRecord | null;
   getOrCreateSeedDocument(): DocumentRecord;
+  createDocument(input: CreateDocumentInput): DocumentRecord;
+  renameDocument(input: Pick<RenameDocumentInput, "id" | "title">): DocumentRecord;
+  deleteDocument(id: string): void;
   updateDocument(input: SaveDocumentInput): DocumentRecord;
   markRendering(id: string): void;
   markRenderSuccess(id: string, renderedHtml: string): void;
@@ -57,6 +67,42 @@ export function createDocumentService({
 
     saveDocument(input: SaveDocumentInput): WorkspaceState {
       return buildWorkspace(repository.updateDocument(input));
+    },
+
+    createDocument(input: CreateDocumentInput): WorkspaceState {
+      return buildWorkspace(repository.createDocument(input));
+    },
+
+    renameDocument(input: RenameDocumentInput): WorkspaceState {
+      const renamedDocument = repository.renameDocument({
+        id: input.id,
+        title: input.title,
+      });
+      const activeDocument =
+        input.id === input.activeDocumentId
+          ? renamedDocument
+          : assertDocument(
+              repository.getDocument(input.activeDocumentId),
+              input.activeDocumentId,
+            );
+
+      return buildWorkspace(activeDocument);
+    },
+
+    deleteDocument(input: DeleteDocumentInput): WorkspaceState {
+      repository.deleteDocument(input.id);
+
+      const documents = repository.listDocuments();
+      if (documents.length === 0) {
+        return buildWorkspace(repository.createDocument({ title: "새 문서" }));
+      }
+
+      const nextActiveDocumentId =
+        input.id === input.activeDocumentId ? documents[0].id : input.activeDocumentId;
+
+      return buildWorkspace(
+        assertDocument(repository.getDocument(nextActiveDocumentId), nextActiveDocumentId),
+      );
     },
 
     async renderDocument(input: SaveDocumentInput): Promise<WorkspaceState> {
