@@ -28,6 +28,60 @@ cp .env.example .env.local
 | `QUARTO_STUDIO_DB_PATH` | `./data/quarto-studio.db` | 문서 메타데이터와 QMD 원문을 저장할 SQLite DB 경로 |
 | `QUARTO_RENDER_TIMEOUT_MS` | `15000` | Quarto 렌더 프로세스 제한 시간(ms) |
 
+## 로컬 렌더링 사전 작업
+
+일반 QMD 문서를 HTML로 렌더링하려면 Quarto CLI만 있으면 됩니다.
+
+```bash
+quarto --version
+```
+
+문서 안의 Python 또는 R 코드 청크를 실제로 실행하려면 `pnpm dev`를 실행하는 서버 환경에 언어별 런타임과 패키지가 추가로 필요합니다. 패키지를 설치한 뒤에는 기존 dev server를 종료하고 같은 셸 환경에서 다시 실행하세요.
+
+### Python 코드 실행
+
+Python 실행형 청크인 `{python}`은 Jupyter 기반 kernel을 사용합니다. 프로젝트 전용 가상 환경을 만들고 필요한 패키지를 설치하는 방식을 권장합니다.
+
+````bash
+python3 -m venv .venv
+source .venv/bin/activate
+
+python -m pip install --upgrade pip
+python -m pip install jupyter pyyaml matplotlib pandas numpy
+
+quarto check jupyter
+````
+
+`matplotlib`, `pandas`, `numpy`는 예제와 데이터 분석 문서에서 자주 쓰는 패키지입니다. 문서에서 다른 Python 패키지를 import한다면 같은 가상 환경에 추가로 설치해야 합니다.
+
+### R 코드 실행
+
+R 실행형 청크인 `{r}`은 로컬에 `Rscript`와 Quarto R 렌더링 패키지가 있어야 합니다. macOS Homebrew 환경에서는 다음처럼 준비할 수 있습니다.
+
+````bash
+brew install r
+
+Rscript -e 'install.packages(c("knitr", "rmarkdown", "ggplot2"), repos="https://cloud.r-project.org")'
+
+quarto check knitr
+````
+
+`knitr`와 `rmarkdown`은 Quarto가 R 문서를 실행/렌더링할 때 필요하고, `ggplot2`는 예제 차트 렌더링에 필요합니다. 문서에서 다른 R 패키지를 사용한다면 `install.packages()`로 추가 설치하세요.
+
+### dev server 재시작
+
+Python 가상 환경 또는 R 설치 상태는 `pnpm dev` 프로세스가 실행될 때의 PATH와 런타임 환경을 따릅니다. 패키지 설치 후에는 같은 셸에서 dev server를 다시 시작하세요.
+
+```bash
+source .venv/bin/activate # Python 실행형 문서를 테스트할 때
+
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+nvm use 24
+
+pnpm dev
+```
+
 ## 실행
 
 ```bash
