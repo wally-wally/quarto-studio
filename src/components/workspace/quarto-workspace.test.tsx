@@ -69,6 +69,22 @@ describe("QuartoWorkspace", () => {
     expect(screen.getByTitle("Rendered preview")).toBeInTheDocument();
   });
 
+  it("Quarto HTML 후처리 스크립트가 실행되도록 preview iframe에서 script 실행을 허용한다", () => {
+    render(
+      <QuartoWorkspace
+        initialWorkspace={workspace}
+        saveDocument={vi.fn()}
+        renderDocument={vi.fn()}
+        selectDocument={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTitle("Rendered preview")).toHaveAttribute(
+      "sandbox",
+      "allow-scripts",
+    );
+  });
+
   it("코드 실행 toggle과 저장 액션을 호출한다", async () => {
     const user = userEvent.setup();
     const saveDocument = vi.fn(async () => workspace);

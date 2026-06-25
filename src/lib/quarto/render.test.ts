@@ -45,9 +45,9 @@ describe("renderDocumentToHtml", () => {
       log: "rendered",
     });
     expect(writtenFiles.get("/tmp/quarto-studio-test/index.qmd")).toBe(
-      "# Quarterly Report\n\n```{r}\n1 + 1\n```",
+      "# Quarterly Report\n\n```{r}\n#| eval: false\n1 + 1\n```",
     );
-    expect(writtenFiles.get("/tmp/quarto-studio-test/_quarto.yml")).toContain(
+    expect(writtenFiles.get("/tmp/quarto-studio-test/_quarto.yml")).not.toContain(
       "eval: false",
     );
     expect(runProcess).toHaveBeenCalledWith(

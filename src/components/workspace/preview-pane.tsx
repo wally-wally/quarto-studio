@@ -41,7 +41,7 @@ export function PreviewPane({
       </div>
       <iframe
         className="preview-frame"
-        sandbox=""
+        sandbox="allow-scripts"
         srcDoc={html}
         title="Rendered preview"
       />
