@@ -5,6 +5,7 @@
 .env.local
 .next/
 node_modules/
+.venv/
 coverage/
 data/
 dist/
