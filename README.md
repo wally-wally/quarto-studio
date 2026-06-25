@@ -2,6 +2,12 @@
 
 Quarto Studio는 QMD 문서를 작성하고, SQLite에 저장한 뒤 Quarto CLI로 HTML 미리보기를 렌더링하는 Next.js 기반 MVP입니다. 현재 목표는 로컬에서 문서 작성, 저장, 렌더링 흐름을 빠르게 검증하는 것입니다.
 
+## 예시 화면
+
+![Python 실행형 차트 예제](images/example01.png)
+
+![R 실행형 ggplot 예제](images/example02.png)
+
 ## 요구 사항
 
 - Node.js 24 (`.nvmrc` 기준)
