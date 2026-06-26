@@ -18,6 +18,9 @@ export async function registerAction(input: {
   if (input.password.length < 8) {
     return { ok: false, error: "비밀번호는 8자 이상이어야 합니다." };
   }
+  if (input.password.length > 72) {
+    return { ok: false, error: "비밀번호는 72자 이하여야 합니다." };
+  }
 
   const sql = getSql();
   const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
@@ -43,6 +46,9 @@ export async function loginAction(input: {
   password: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const email = input.email.trim().toLowerCase();
+  if (input.password.length > 72) {
+    return { ok: false, error: "이메일 또는 비밀번호가 올바르지 않습니다." };
+  }
   const sql = getSql();
   const rows = await sql`SELECT id, password_hash FROM users WHERE email = ${email}`;
   if (rows.length === 0) {
