@@ -123,8 +123,10 @@ function toSummary(document: DocumentRecord): DocumentSummary {
   };
 }
 
+const RENDER_QUOTA = Number(process.env.RENDER_QUOTA ?? "3");
+
 export function createDocumentRepository(sql: Sql) {
-  const getDocumentById = async (id: string): Promise<DocumentRecord | null> => {
+  const getDocumentById = async (ownerId: string, id: string): Promise<DocumentRecord | null> => {
     const rows = await sql<DocumentRow[]>`
       SELECT d.*,
              j.status as job_status,
@@ -138,19 +140,19 @@ export function createDocumentRepository(sql: Sql) {
         ORDER BY created_at DESC
         LIMIT 1
       ) j ON true
-      WHERE d.id = ${id}
+      WHERE d.id = ${id} AND d.owner_id = ${ownerId}
     `;
     const row = rows[0];
     return row ? toDocument(row) : null;
   };
 
-  const createUniqueSlug = async (title: string, id: string): Promise<string> => {
+  const createUniqueSlug = async (ownerId: string, title: string, id: string): Promise<string> => {
     const baseSlug = normalizeSlug(title, `document-${id.slice(0, 8)}`);
     let candidate = baseSlug;
     let suffix = 2;
 
     while (true) {
-      const existing = await sql`SELECT id FROM documents WHERE slug = ${candidate}`;
+      const existing = await sql`SELECT id FROM documents WHERE owner_id = ${ownerId} AND slug = ${candidate}`;
       if (existing.length === 0) break;
       candidate = `${baseSlug}-${suffix}`;
       suffix += 1;
@@ -160,7 +162,7 @@ export function createDocumentRepository(sql: Sql) {
   };
 
   return {
-    async listDocuments(): Promise<DocumentSummary[]> {
+    async listDocuments(ownerId: string): Promise<DocumentSummary[]> {
       const rows = await sql<DocumentRow[]>`
         SELECT d.*,
                j.status as job_status,
@@ -174,16 +176,17 @@ export function createDocumentRepository(sql: Sql) {
           ORDER BY created_at DESC
           LIMIT 1
         ) j ON true
+        WHERE d.owner_id = ${ownerId}
         ORDER BY d.updated_at DESC
       `;
       return rows.map(toDocument).map(toSummary);
     },
 
-    async getDocument(id: string): Promise<DocumentRecord | null> {
-      return getDocumentById(id);
+    async getDocument(ownerId: string, id: string): Promise<DocumentRecord | null> {
+      return getDocumentById(ownerId, id);
     },
 
-    async getOrCreateSeedDocument(): Promise<DocumentRecord> {
+    async getOrCreateSeedDocument(ownerId: string): Promise<DocumentRecord> {
       const existing = await sql<DocumentRow[]>`
         SELECT d.*,
                j.status as job_status,
@@ -197,6 +200,7 @@ export function createDocumentRepository(sql: Sql) {
           ORDER BY created_at DESC
           LIMIT 1
         ) j ON true
+        WHERE d.owner_id = ${ownerId}
         ORDER BY d.created_at ASC
         LIMIT 1
       `;
@@ -205,38 +209,39 @@ export function createDocumentRepository(sql: Sql) {
       }
 
       const inserted = await sql<{ id: string }[]>`
-        INSERT INTO documents (title, slug, content, execute_code)
-        VALUES ('Getting Started', 'getting-started', ${seedContent}, false)
+        INSERT INTO documents (title, slug, content, execute_code, owner_id)
+        VALUES ('Getting Started', 'getting-started', ${seedContent}, false, ${ownerId})
         RETURNING id
       `;
       const id = inserted[0].id;
-      const doc = await getDocumentById(id);
+      const doc = await getDocumentById(ownerId, id);
       if (!doc) throw new Error("Failed to create seed document");
       return doc;
     },
 
-    async createDocument(input: CreateDocumentInput): Promise<DocumentRecord> {
+    async createDocument(ownerId: string, input: CreateDocumentInput): Promise<DocumentRecord> {
       const title = normalizeTitle(input.title);
 
       // Insert with a temporary placeholder slug, then update once the DB-generated id is known
       const inserted = await sql<{ id: string }[]>`
-        INSERT INTO documents (title, slug, content, execute_code)
-        VALUES (${title}, ${`temp-${Date.now()}`}, ${createDefaultContent(title)}, true)
+        INSERT INTO documents (title, slug, content, execute_code, owner_id)
+        VALUES (${title}, ${`temp-${Date.now()}`}, ${createDefaultContent(title)}, true, ${ownerId})
         RETURNING id
       `;
       const id = inserted[0].id;
-      const slug = await createUniqueSlug(title, id);
+      const slug = await createUniqueSlug(ownerId, title, id);
 
       await sql`
         UPDATE documents SET slug = ${slug} WHERE id = ${id}
       `;
 
-      const doc = await getDocumentById(id);
+      const doc = await getDocumentById(ownerId, id);
       if (!doc) throw new Error(`Document not found: ${id}`);
       return doc;
     },
 
     async renameDocument(
+      ownerId: string,
       input: Pick<RenameDocumentInput, "id" | "title">
     ): Promise<DocumentRecord> {
       const title = normalizeTitle(input.title);
@@ -244,25 +249,25 @@ export function createDocumentRepository(sql: Sql) {
         UPDATE documents
         SET title = ${title},
             updated_at = now()
-        WHERE id = ${input.id}
+        WHERE id = ${input.id} AND owner_id = ${ownerId}
       `;
       if (result.count === 0) {
         throw new Error(`Document not found: ${input.id}`);
       }
 
-      const doc = await getDocumentById(input.id);
+      const doc = await getDocumentById(ownerId, input.id);
       if (!doc) throw new Error(`Document not found: ${input.id}`);
       return doc;
     },
 
-    async deleteDocument(id: string): Promise<void> {
-      const result = await sql`DELETE FROM documents WHERE id = ${id}`;
+    async deleteDocument(ownerId: string, id: string): Promise<void> {
+      const result = await sql`DELETE FROM documents WHERE id = ${id} AND owner_id = ${ownerId}`;
       if (result.count === 0) {
         throw new Error(`Document not found: ${id}`);
       }
     },
 
-    async updateDocument(input: SaveDocumentInput): Promise<DocumentRecord> {
+    async updateDocument(ownerId: string, input: SaveDocumentInput): Promise<DocumentRecord> {
       const result = await sql`
         UPDATE documents
         SET title = ${input.title},
@@ -270,25 +275,45 @@ export function createDocumentRepository(sql: Sql) {
             content = ${input.content},
             execute_code = ${input.executeCode},
             updated_at = now()
-        WHERE id = ${input.id}
+        WHERE id = ${input.id} AND owner_id = ${ownerId}
       `;
       if (result.count === 0) {
         throw new Error(`Document not found: ${input.id}`);
       }
 
-      const doc = await getDocumentById(input.id);
+      const doc = await getDocumentById(ownerId, input.id);
       if (!doc) throw new Error(`Document not found: ${input.id}`);
       return doc;
     },
 
     async enqueueRenderJob(input: {
+      ownerId: string;
       documentId: string;
       contentSnapshot: string;
       executeCode: boolean;
     }): Promise<{ jobId: string }> {
+      // 1. Verify the document belongs to the owner
+      const docCheck = await sql`
+        SELECT id FROM documents WHERE id = ${input.documentId} AND owner_id = ${input.ownerId}
+      `;
+      if (docCheck.length === 0) {
+        throw new Error(`Document not found: ${input.documentId}`);
+      }
+
+      // 2. Quota check: count active jobs for this owner
+      const quotaRows = await sql<{ count: string }[]>`
+        SELECT COUNT(*) as count FROM render_jobs
+        WHERE requested_by = ${input.ownerId} AND status IN ('queued', 'running')
+      `;
+      const activeCount = Number(quotaRows[0].count);
+      if (activeCount >= RENDER_QUOTA) {
+        throw new Error("렌더 동시 실행 한도 초과");
+      }
+
+      // 3. Insert the render job
       const inserted = await sql<{ id: string }[]>`
-        INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code)
-        VALUES (${input.documentId}, 'queued', ${input.contentSnapshot}, ${input.executeCode})
+        INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, requested_by)
+        VALUES (${input.documentId}, 'queued', ${input.contentSnapshot}, ${input.executeCode}, ${input.ownerId})
         RETURNING id
       `;
       const jobId = inserted[0].id;
