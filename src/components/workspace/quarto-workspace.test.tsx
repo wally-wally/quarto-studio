@@ -1,8 +1,12 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuartoWorkspace } from "./quarto-workspace";
 import type { WorkspaceState } from "./types";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const workspace: WorkspaceState = {
   documents: [
@@ -334,5 +338,96 @@ describe("QuartoWorkspace", () => {
     expect(screen.getByLabelText("문서 검색 준비 중")).toHaveAttribute(
       "readonly"
     );
+  });
+
+  it("렌더 후 폴링으로 succeeded 상태가 되면 프리뷰 HTML이 갱신된다", async () => {
+    vi.useFakeTimers();
+
+    const succeededJob = {
+      id: "job-1",
+      documentId: "doc-1",
+      status: "succeeded" as const,
+      log: null,
+      renderedHtml: "<h1>Rendered!</h1>",
+      createdAt: "2026-06-24T00:00:00.000Z",
+      finishedAt: "2026-06-24T00:01:00.000Z"
+    };
+
+    const getRenderJob = vi.fn()
+      .mockResolvedValueOnce({ ...succeededJob, status: "running" as const, renderedHtml: null })
+      .mockResolvedValueOnce(succeededJob);
+
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
+
+    renderWorkspace({ renderDocument, getRenderJob });
+
+    // 렌더 버튼 클릭 — startTransition 내 async 완료까지 act로 flush
+    await act(async () => {
+      screen.getByRole("button", { name: "렌더" }).click();
+    });
+
+    // 첫 번째 폴링 (running → 계속 폴링)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(1);
+
+    // 두 번째 폴링 (succeeded → 중단)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+
+    // 프리뷰 iframe이 새 HTML로 갱신됐는지 확인 (real timers 복원 후)
+    await waitFor(() => {
+      expect(screen.getByTitle("Rendered preview")).toHaveAttribute(
+        "srcdoc",
+        "<h1>Rendered!</h1>"
+      );
+    });
+  });
+
+  it("문서 전환 시 진행 중인 폴링이 정리된다", async () => {
+    vi.useFakeTimers();
+
+    // 폴링이 계속 running을 반환하는 mock
+    const getRenderJob = vi.fn().mockResolvedValue({
+      id: "job-1",
+      documentId: "doc-1",
+      status: "running" as const,
+      log: null,
+      renderedHtml: null,
+      createdAt: "2026-06-24T00:00:00.000Z",
+      finishedAt: null
+    });
+
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
+    const selectDocument = vi.fn(async () => workspace);
+
+    renderWorkspace({ renderDocument, getRenderJob, selectDocument });
+
+    // 렌더 버튼 클릭
+    await act(async () => {
+      screen.getByRole("button", { name: "렌더" }).click();
+    });
+
+    // 폴링 1회
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(1);
+
+    // 문서 전환 → stopPolling 호출
+    await act(async () => {
+      screen.getByRole("button", { name: "운영 리포트 열기" }).click();
+    });
+
+    // 추가로 3000ms 경과해도 폴링이 더 이상 호출되지 않음
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(1); // 여전히 1회
   });
 });

@@ -135,4 +135,42 @@ describe("document repository", () => {
 
     expect(await repository.getRenderJob(jobId)).toBeNull();
   });
+
+  it("재렌더 중(queued)에도 직전 succeeded HTML이 유지된다", async () => {
+    const doc = await repository.getOrCreateSeedDocument();
+
+    // 이전 성공 잡 직접 삽입
+    await sql`
+      INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, rendered_html, finished_at)
+      VALUES (${doc.id}, 'succeeded', ${doc.content}, false, '<h1>Previous</h1>', now())
+    `;
+
+    // 새 잡 enqueue (queued 상태)
+    await repository.enqueueRenderJob({
+      documentId: doc.id,
+      contentSnapshot: doc.content,
+      executeCode: false,
+    });
+
+    const afterEnqueue = await repository.getDocument(doc.id);
+    // renderStatus는 rendering (최신 잡이 queued)
+    expect(afterEnqueue?.renderStatus).toBe("rendering");
+    // 하지만 renderedHtml은 직전 succeeded에서 유지
+    expect(afterEnqueue?.renderedHtml).toBe("<h1>Previous</h1>");
+    expect(afterEnqueue?.renderedAt).not.toBeNull();
+  });
+
+  it("failed 잡은 renderStatus error, renderedHtml null, renderError에 log", async () => {
+    const doc = await repository.getOrCreateSeedDocument();
+
+    await sql`
+      INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, log, finished_at)
+      VALUES (${doc.id}, 'failed', ${doc.content}, false, 'render error: parse failed', now())
+    `;
+
+    const afterFailed = await repository.getDocument(doc.id);
+    expect(afterFailed?.renderStatus).toBe("error");
+    expect(afterFailed?.renderedHtml).toBeNull();
+    expect(afterFailed?.renderError).toBe("render error: parse failed");
+  });
 });
