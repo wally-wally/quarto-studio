@@ -74,6 +74,8 @@ RUN fc-cache -f \
 
 # UTF-8 로케일: R의 멀티바이트(한글) 그래픽 렌더에 필수.
 # 기본 POSIX 로케일에서는 한글이 두부/유니코드 escape로 깨진다.
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+# LC_ALL 대신 LC_CTYPE만 고정 — 문자 인코딩(렌더)에 필요한 카테고리만 강제하고,
+# collation 등 다른 카테고리는 런타임에서 재정의 가능하게 둔다.
+ENV LANG=C.UTF-8 LC_CTYPE=C.UTF-8
 
 WORKDIR /work
