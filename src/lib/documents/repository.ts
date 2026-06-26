@@ -79,7 +79,7 @@ function deriveRenderStatus(row: DocumentRow): Pick<DocumentRecord, "renderStatu
     return { renderStatus: "idle", renderedHtml: null, renderError: null, renderedAt: null };
   }
   if (status === "queued" || status === "running") {
-    return { renderStatus: "rendering", renderedHtml: null, renderError: null, renderedAt: null };
+    return { renderStatus: "rendering", renderedHtml: row.job_html, renderError: null, renderedAt: row.job_finished_at?.toISOString() ?? null };
   }
   if (status === "succeeded") {
     return {
@@ -123,16 +123,23 @@ export function createDocumentRepository(sql: Sql) {
   const getDocumentById = async (id: string): Promise<DocumentRecord | null> => {
     const rows = await sql<DocumentRow[]>`
       SELECT d.*,
-             j.status as job_status, j.rendered_html as job_html,
-             j.log as job_log, j.finished_at as job_finished_at
+             j.status as job_status, js.rendered_html as job_html,
+             j.log as job_log, js.finished_at as job_finished_at
       FROM documents d
       LEFT JOIN LATERAL (
-        SELECT status, rendered_html, log, finished_at
+        SELECT status, log
         FROM render_jobs
         WHERE document_id = d.id
         ORDER BY created_at DESC
         LIMIT 1
       ) j ON true
+      LEFT JOIN LATERAL (
+        SELECT rendered_html, finished_at
+        FROM render_jobs
+        WHERE document_id = d.id AND status = 'succeeded'
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) js ON true
       WHERE d.id = ${id}
     `;
     const row = rows[0];
@@ -158,16 +165,23 @@ export function createDocumentRepository(sql: Sql) {
     async listDocuments(): Promise<DocumentSummary[]> {
       const rows = await sql<DocumentRow[]>`
         SELECT d.*,
-               j.status as job_status, j.rendered_html as job_html,
-               j.log as job_log, j.finished_at as job_finished_at
+               j.status as job_status, js.rendered_html as job_html,
+               j.log as job_log, js.finished_at as job_finished_at
         FROM documents d
         LEFT JOIN LATERAL (
-          SELECT status, rendered_html, log, finished_at
+          SELECT status, log
           FROM render_jobs
           WHERE document_id = d.id
           ORDER BY created_at DESC
           LIMIT 1
         ) j ON true
+        LEFT JOIN LATERAL (
+          SELECT rendered_html, finished_at
+          FROM render_jobs
+          WHERE document_id = d.id AND status = 'succeeded'
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) js ON true
         ORDER BY d.updated_at DESC
       `;
       return rows.map(toDocument).map(toSummary);
@@ -180,16 +194,23 @@ export function createDocumentRepository(sql: Sql) {
     async getOrCreateSeedDocument(): Promise<DocumentRecord> {
       const existing = await sql<DocumentRow[]>`
         SELECT d.*,
-               j.status as job_status, j.rendered_html as job_html,
-               j.log as job_log, j.finished_at as job_finished_at
+               j.status as job_status, js.rendered_html as job_html,
+               j.log as job_log, js.finished_at as job_finished_at
         FROM documents d
         LEFT JOIN LATERAL (
-          SELECT status, rendered_html, log, finished_at
+          SELECT status, log
           FROM render_jobs
           WHERE document_id = d.id
           ORDER BY created_at DESC
           LIMIT 1
         ) j ON true
+        LEFT JOIN LATERAL (
+          SELECT rendered_html, finished_at
+          FROM render_jobs
+          WHERE document_id = d.id AND status = 'succeeded'
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) js ON true
         ORDER BY d.created_at ASC
         LIMIT 1
       `;
