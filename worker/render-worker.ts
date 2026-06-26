@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import postgres from "postgres";
 import { buildQuartoProjectFiles } from "../src/lib/quarto/project";
+import { artifactStore } from "../src/lib/storage/artifact-store";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -27,6 +28,7 @@ const sql = postgres(DATABASE_URL, { onnotice: () => {} });
 
 type ClaimedJob = {
   id: string;
+  document_id: string;
   content_snapshot: string;
   execute_code: boolean;
 };
@@ -43,7 +45,7 @@ async function claimJob(): Promise<ClaimedJob | null> {
         for update skip locked
         limit 1
      )
-    returning id, content_snapshot, execute_code
+    returning id, document_id, content_snapshot, execute_code
   `;
   return rows[0] ?? null;
 }
@@ -104,12 +106,46 @@ async function processJob(job: ClaimedJob): Promise<void> {
 
     if (code === 0) {
       const html = await fs.readFile(path.join(tmp, "index.html"), "utf8");
-      await sql`
-        update render_jobs
-           set status = 'succeeded', rendered_html = ${html}, log = ${out}, finished_at = now()
-         where id = ${job.id}
+
+      const artifactId = crypto.randomUUID();
+      const key = `${artifactId}.html`;
+      const { sizeBytes } = await artifactStore.putArtifact(key, html);
+
+      await sql.begin(async (tx) => {
+        // 1. insert artifact row
+        await tx`
+          insert into artifacts (id, document_id, job_id, storage_key, size_bytes)
+          values (${artifactId}, ${job.document_id}, ${job.id}, ${key}, ${sizeBytes})
+        `;
+
+        // 2. update render_jobs (no rendered_html anymore)
+        await tx`
+          update render_jobs
+             set status = 'succeeded', artifact_id = ${artifactId}, log = ${out}, finished_at = now()
+           where id = ${job.id}
+        `;
+
+        // 3. update documents.latest_artifact_id
+        await tx`
+          update documents
+             set latest_artifact_id = ${artifactId}
+           where id = ${job.document_id}
+        `;
+      });
+
+      // Retention: keep latest 5 artifacts for this document
+      const old = await sql<{ id: string; storage_key: string }[]>`
+        select id, storage_key from artifacts
+        where document_id = ${job.document_id}
+        order by created_at desc
+        offset 5
       `;
-      console.log(`[job ${job.id}] succeeded (${html.length} bytes)`);
+      for (const row of old) {
+        await artifactStore.deleteArtifact(row.storage_key);
+        await sql`delete from artifacts where id = ${row.id}`;
+      }
+
+      console.log(`[job ${job.id}] succeeded → artifact ${artifactId} (${sizeBytes} bytes)`);
     } else {
       const status = code === 124 ? "timed_out" : "failed";
       await sql`
