@@ -1,0 +1,34 @@
+---
+title: "다이어그램 (Mermaid)"
+author: "Quarto Studio"
+format: html
+---
+
+## 렌더링 흐름도
+
+Quarto Studio의 문서 렌더링 흐름을 다이어그램으로 표현합니다.
+
+```{mermaid}
+flowchart TD
+    A[QMD 문서 작성] --> B[SQLite 저장]
+    B --> C{코드 실행?}
+    C -->|executeCode false| D[코드 미실행 렌더]
+    C -->|executeCode true| E[Python/R 실행]
+    D --> F[HTML 미리보기]
+    E --> F
+```
+
+## 시퀀스 다이어그램
+
+```{mermaid}
+sequenceDiagram
+    participant U as 사용자
+    participant S as 서버
+    participant Q as Quarto CLI
+    U->>S: 렌더 요청
+    S->>Q: quarto render index.qmd
+    Q-->>S: HTML 반환
+    S-->>U: 미리보기 표시
+```
+
+> 코드 실행을 켜지 않아도 Mermaid 다이어그램은 렌더링됩니다.

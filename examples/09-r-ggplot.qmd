@@ -1,0 +1,36 @@
+---
+title: "R 차트 (ggplot2)"
+author: "Quarto Studio"
+format: html
+---
+
+## ggplot2 산점도
+
+`ggplot2`로 내장 `mtcars` 데이터를 시각화합니다. 코드 실행이 켜져 있어야 합니다.
+
+```{r}
+library(ggplot2)
+
+ggplot(mtcars, aes(x = wt, y = mpg, color = factor(cyl))) +
+  geom_point(size = 3) +
+  labs(
+    title = "차량 무게 대비 연비",
+    x = "무게 (1000 lbs)",
+    y = "연비 (mpg)",
+    color = "실린더"
+  ) +
+  theme_minimal()
+```
+
+## 막대 그래프
+
+```{r}
+library(ggplot2)
+
+ggplot(mpg, aes(x = class, fill = class)) +
+  geom_bar() +
+  labs(title = "차종별 빈도", x = "차종", y = "개수") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+```

@@ -1,0 +1,48 @@
+---
+title: "Julia 기본 실행"
+author: "Quarto Studio"
+format: html
+jupyter: julia-1.12
+---
+
+## 코드 실행 안내
+
+`{julia}` 청크는 **서버 측에 Julia 런타임과 커널(IJulia)** 이 필요합니다.
+`jupyter` 키의 커널 이름은 설치된 버전에 맞춰 조정하세요(예: `julia-1.10`).
+
+## 기본 연산
+
+```{julia}
+a = 6
+b = 7
+println("$a x $b = $(a * b)")
+```
+
+## 배열과 컴프리헨션
+
+```{julia}
+squares = [n^2 for n in 1:5]
+```
+
+## 함수 정의
+
+```{julia}
+function fib(n)
+    seq = [0, 1]
+    while length(seq) < n
+        push!(seq, seq[end] + seq[end-1])
+    end
+    return seq[1:n]
+end
+
+fib(10)
+```
+
+## 간단한 통계
+
+```{julia}
+using Statistics
+
+data = [10, 20, 30, 40, 50]
+(mean = mean(data), std = std(data), sum = sum(data))
+```

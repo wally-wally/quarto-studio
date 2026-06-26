@@ -1,0 +1,54 @@
+---
+title: "Observable Plot 차트"
+author: "Quarto Studio"
+format: html
+---
+
+## 코드 실행 안내
+
+`{ojs}` 청크는 브라우저에서 실행되므로 Quarto CLI만으로 차트가 그려집니다.
+서버에 Python·R·Julia 런타임이 없어도 됩니다.
+
+## 인라인 데이터 막대 그래프
+
+```{ojs}
+data = [
+  { 언어: "Markdown", 문서수: 42 },
+  { 언어: "Python", 문서수: 35 },
+  { 언어: "R", 문서수: 18 },
+  { 언어: "Julia", 문서수: 9 },
+  { 언어: "OJS", 문서수: 14 }
+]
+```
+
+```{ojs}
+Plot.plot({
+  marginLeft: 70,
+  x: { label: "문서 수" },
+  y: { label: null },
+  marks: [
+    Plot.barX(data, { x: "문서수", y: "언어", fill: "steelblue", sort: { y: "x", reverse: true } }),
+    Plot.ruleX([0])
+  ]
+})
+```
+
+## 산점도
+
+```{ojs}
+scatter = Array.from({ length: 120 }, () => {
+  const x = d3.randomNormal(0, 1)();
+  return { x, y: x * 1.4 + d3.randomNormal(0, 0.6)() };
+})
+```
+
+```{ojs}
+Plot.plot({
+  grid: true,
+  marks: [
+    Plot.dot(scatter, { x: "x", y: "y", fill: "tomato", opacity: 0.6 })
+  ]
+})
+```
+
+`Plot`과 `d3`는 Observable 런타임에 기본 포함되어 별도 import가 필요 없습니다.

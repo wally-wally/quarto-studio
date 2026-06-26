@@ -1,0 +1,44 @@
+---
+title: "Observable JS 인터랙티브"
+author: "Quarto Studio"
+format: html
+---
+
+## 코드 실행 안내
+
+`{ojs}` 청크는 **브라우저에서 실행**됩니다. 서버에 별도 런타임이 필요 없고
+**Quarto CLI만 있으면** 렌더링됩니다.
+
+## 슬라이더 입력
+
+아래 슬라이더를 움직이면 값이 즉시 반영됩니다.
+
+```{ojs}
+viewof amplitude = Inputs.range([1, 10], { value: 3, step: 1, label: "진폭" })
+```
+
+```{ojs}
+md`현재 진폭은 **${amplitude}** 입니다.`
+```
+
+## 반응형 데이터 생성
+
+```{ojs}
+points = Array.from({ length: 100 }, (_, i) => {
+  const x = (i / 99) * 2 * Math.PI;
+  return { x, y: amplitude * Math.sin(x) };
+})
+```
+
+```{ojs}
+Plot.plot({
+  marginLeft: 50,
+  y: { domain: [-10, 10], grid: true },
+  marks: [
+    Plot.line(points, { x: "x", y: "y", stroke: "steelblue" }),
+    Plot.ruleY([0])
+  ]
+})
+```
+
+슬라이더를 조절하면 차트가 실시간으로 다시 그려집니다.

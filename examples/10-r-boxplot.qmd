@@ -1,0 +1,39 @@
+---
+title: "R 분포 차트 (히스토그램·박스플롯)"
+author: "Quarto Studio"
+format: html
+---
+
+## 히스토그램
+
+내장 `iris` 데이터로 분포를 살펴봅니다. 코드 실행이 켜져 있어야 합니다.
+
+```{r}
+library(ggplot2)
+
+ggplot(iris, aes(x = Sepal.Length, fill = Species)) +
+  geom_histogram(binwidth = 0.3, alpha = 0.7, position = "identity") +
+  labs(title = "꽃받침 길이 분포", x = "Sepal Length", y = "빈도") +
+  theme_minimal()
+```
+
+## 박스플롯
+
+```{r}
+library(ggplot2)
+
+ggplot(iris, aes(x = Species, y = Petal.Length, fill = Species)) +
+  geom_boxplot() +
+  labs(title = "종별 꽃잎 길이", x = "종", y = "Petal Length") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+## base R 플롯
+
+```{r}
+plot(iris$Petal.Length, iris$Petal.Width,
+     col = iris$Species, pch = 19,
+     main = "꽃잎 길이 vs 너비",
+     xlab = "Petal Length", ylab = "Petal Width")
+```
