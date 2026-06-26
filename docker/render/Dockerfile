@@ -28,4 +28,15 @@ RUN pip install --no-cache-dir --upgrade pip \
     && quarto check jupyter
 RUN mkdir -p /opt/mpl && chmod 777 /opt/mpl
 
+# --- R ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      r-base r-base-dev \
+      libcurl4-openssl-dev libssl-dev libxml2-dev \
+      libfontconfig1-dev libfreetype6-dev libpng-dev libjpeg-dev libtiff5-dev \
+      libuv1-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY install-r-packages.R /tmp/install-r-packages.R
+RUN Rscript /tmp/install-r-packages.R \
+    && quarto check knitr
+
 WORKDIR /work
