@@ -12,7 +12,7 @@
 
 html,
 body {
-  min-height: 100%;
+  height: 100%;
   margin: 0;
 }
 
@@ -28,7 +28,8 @@ input {
 }
 
 .studio-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   grid-template-rows: 56px 1fr;
   background: #eef3f8;
@@ -164,6 +165,7 @@ input {
 
 .workspace-grid {
   min-height: 0;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 250px minmax(360px, 1fr) minmax(380px, 1fr);
 }
@@ -171,6 +173,10 @@ input {
 .document-sidebar {
   position: relative;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 14px;
   background: #102a4a;
   color: #dce9f7;
@@ -225,8 +231,12 @@ input {
 }
 
 .document-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   margin-top: 12px;
   display: grid;
+  align-content: start;
   gap: 8px;
 }
 
@@ -400,6 +410,7 @@ input {
 .workspace-pane {
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   border-right: 1px solid #d8e2ee;
@@ -478,7 +489,8 @@ input {
 .qmd-editor {
   flex: 1;
   width: 100%;
-  min-height: 360px;
+  min-height: 0;
+  overflow: auto;
   resize: none;
   border: 0;
   outline: 0;
@@ -503,7 +515,7 @@ input {
 
 .preview-frame {
   flex: 1;
-  min-height: 340px;
+  min-height: 0;
   margin: 14px;
   border: 1px solid #cddaea;
   border-radius: 8px;
@@ -551,8 +563,16 @@ input {
 }
 
 @media (max-width: 980px) {
+  html,
+  body {
+    height: auto;
+  }
+
   .studio-shell {
     grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 
   .topbar {
@@ -563,6 +583,7 @@ input {
 
   .workspace-grid {
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .document-sidebar,
