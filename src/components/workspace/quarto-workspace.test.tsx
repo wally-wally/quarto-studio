@@ -36,7 +36,7 @@ const workspace: WorkspaceState = {
     content: "# Getting Started",
     executeCode: false,
     renderStatus: "success",
-    renderedHtml: "<h1>Getting Started</h1>",
+    latestArtifactId: "artifact-1",
     renderError: null,
     createdAt: "2026-06-24T00:00:00.000Z",
     updatedAt: "2026-06-24T00:00:00.000Z",
@@ -207,7 +207,7 @@ describe("QuartoWorkspace", () => {
         content: "# 운영 리포트",
         executeCode: true,
         renderStatus: "idle",
-        renderedHtml: "",
+        latestArtifactId: null,
         renderError: null,
         createdAt: "2026-06-24T01:00:00.000Z",
         updatedAt: "2026-06-24T01:00:00.000Z",
@@ -256,7 +256,7 @@ describe("QuartoWorkspace", () => {
         content: "# 운영 리포트",
         executeCode: true,
         renderStatus: "idle",
-        renderedHtml: "",
+        latestArtifactId: null,
         renderError: null,
         createdAt: "2026-06-24T01:00:00.000Z",
         updatedAt: "2026-06-24T01:00:00.000Z",
@@ -348,13 +348,13 @@ describe("QuartoWorkspace", () => {
       documentId: "doc-1",
       status: "succeeded" as const,
       log: null,
-      renderedHtml: "<h1>Rendered!</h1>",
+      artifactId: "artifact-new",
       createdAt: "2026-06-24T00:00:00.000Z",
       finishedAt: "2026-06-24T00:01:00.000Z"
     };
 
     const getRenderJob = vi.fn()
-      .mockResolvedValueOnce({ ...succeededJob, status: "running" as const, renderedHtml: null })
+      .mockResolvedValueOnce({ ...succeededJob, status: "running" as const, artifactId: null })
       .mockResolvedValueOnce(succeededJob);
 
     const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
@@ -380,11 +380,11 @@ describe("QuartoWorkspace", () => {
 
     vi.useRealTimers();
 
-    // 프리뷰 iframe이 새 HTML로 갱신됐는지 확인 (real timers 복원 후)
+    // 프리뷰 iframe이 새 artifact URL로 갱신됐는지 확인 (real timers 복원 후)
     await waitFor(() => {
       expect(screen.getByTitle("Rendered preview")).toHaveAttribute(
-        "srcdoc",
-        "<h1>Rendered!</h1>"
+        "src",
+        "/preview/artifact-new"
       );
     });
   });
@@ -398,7 +398,7 @@ describe("QuartoWorkspace", () => {
       documentId: "doc-1",
       status: "running" as const,
       log: null,
-      renderedHtml: null,
+      artifactId: null,
       createdAt: "2026-06-24T00:00:00.000Z",
       finishedAt: null
     });

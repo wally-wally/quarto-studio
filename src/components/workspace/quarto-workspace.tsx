@@ -117,7 +117,7 @@ export function QuartoWorkspace({
                 activeDocument: {
                   ...prev.activeDocument,
                   renderStatus: "success",
-                  renderedHtml: job.renderedHtml,
+                  latestArtifactId: job.artifactId,
                   renderError: null,
                   renderedAt: job.finishedAt
                 }
@@ -127,7 +127,7 @@ export function QuartoWorkspace({
             setDraft((prev) => ({
               ...prev,
               renderStatus: "success",
-              renderedHtml: job.renderedHtml,
+              latestArtifactId: job.artifactId,
               renderError: null,
               renderedAt: job.finishedAt
             }));
