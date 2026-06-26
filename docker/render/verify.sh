@@ -12,7 +12,10 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 EXAMPLES="$ROOT/examples"
 
 # 정규화 가드: 예제에 비정규 Julia 커널 이름이 남아 있으면 실패(julia-1.10만 허용).
-if grep -RnE '^jupyter:[[:space:]]*julia-' "$EXAMPLES" | grep -v 'julia-1.10'; then
+# `|| true`로 pipefail 전파를 끊어, Julia 커널이 없거나 모두 정규일 때도 안전하게 통과.
+bad="$(grep -RnE '^jupyter:[[:space:]]*julia-' "$EXAMPLES" | grep -v 'julia-1.10' || true)"
+if [[ -n "$bad" ]]; then
+  echo "$bad"
   echo "FAIL: 비정규 Julia 커널 이름이 예제에 있음 (julia-1.10만 허용)"
   exit 1
 fi
