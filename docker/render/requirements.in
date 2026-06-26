@@ -1,0 +1,13 @@
+jupyter
+jupyter-cache
+pyyaml
+numpy
+pandas
+matplotlib
+altair
+vega_datasets
+plotly
+seaborn
+scikit-learn
+scipy
+statsmodels
