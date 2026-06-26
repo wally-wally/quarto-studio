@@ -13,7 +13,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`TRUNCATE documents, render_jobs RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE documents, render_jobs, artifacts RESTART IDENTITY CASCADE`;
 });
 
 describe("app document service", () => {

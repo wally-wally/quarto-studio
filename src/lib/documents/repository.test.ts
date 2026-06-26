@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createDocumentRepository } from "./repository";
@@ -12,7 +13,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`TRUNCATE documents, render_jobs RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE documents, render_jobs, artifacts RESTART IDENTITY CASCADE`;
 });
 
 describe("document repository", () => {
@@ -83,7 +84,7 @@ describe("document repository", () => {
 
     // No job → idle
     expect(doc.renderStatus).toBe("idle");
-    expect(doc.renderedHtml).toBeNull();
+    expect(doc.latestArtifactId).toBeNull();
 
     // Enqueue job → rendering
     await repository.enqueueRenderJob({
@@ -94,14 +95,22 @@ describe("document repository", () => {
     const afterEnqueue = await repository.getDocument(doc.id);
     expect(afterEnqueue?.renderStatus).toBe("rendering");
 
-    // Manually insert succeeded job → success
+    // Manually insert succeeded job + artifact (simulating what the worker does)
     await sql`
-      INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, rendered_html, finished_at)
-      VALUES (${doc.id}, 'succeeded', ${doc.content}, false, '<h1>Done</h1>', now())
+      INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, finished_at)
+      VALUES (${doc.id}, 'succeeded', ${doc.content}, false, now())
+    `;
+    const artifactId = randomUUID();
+    await sql`
+      INSERT INTO artifacts (id, document_id, storage_key)
+      VALUES (${artifactId}, ${doc.id}, ${artifactId + ".html"})
+    `;
+    await sql`
+      UPDATE documents SET latest_artifact_id = ${artifactId} WHERE id = ${doc.id}
     `;
     const afterSuccess = await repository.getDocument(doc.id);
     expect(afterSuccess?.renderStatus).toBe("success");
-    expect(afterSuccess?.renderedHtml).toBe("<h1>Done</h1>");
+    expect(afterSuccess?.latestArtifactId).toBe(artifactId);
   });
 
   it("enqueueRenderJob이 jobId를 반환하고 getRenderJob이 RenderJobRecord를 반환한다", async () => {
@@ -120,7 +129,7 @@ describe("document repository", () => {
     expect(job?.status).toBe("queued");
     expect(job?.documentId).toBe(doc.id);
     expect(job?.log).toBeNull();
-    expect(job?.renderedHtml).toBeNull();
+    expect(job?.artifactId).toBeNull();
   });
 
   it("문서 삭제 시 render_jobs도 cascade 삭제된다", async () => {
@@ -136,13 +145,21 @@ describe("document repository", () => {
     expect(await repository.getRenderJob(jobId)).toBeNull();
   });
 
-  it("재렌더 중(queued)에도 직전 succeeded HTML이 유지된다", async () => {
+  it("재렌더 중(queued)에도 직전 latestArtifactId가 유지된다", async () => {
     const doc = await repository.getOrCreateSeedDocument();
 
-    // 이전 성공 잡 직접 삽입
+    // 이전 성공 잡 직접 삽입 + artifact 생성
     await sql`
-      INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, rendered_html, finished_at)
-      VALUES (${doc.id}, 'succeeded', ${doc.content}, false, '<h1>Previous</h1>', now())
+      INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, finished_at)
+      VALUES (${doc.id}, 'succeeded', ${doc.content}, false, now())
+    `;
+    const artifactId = randomUUID();
+    await sql`
+      INSERT INTO artifacts (id, document_id, storage_key)
+      VALUES (${artifactId}, ${doc.id}, ${artifactId + ".html"})
+    `;
+    await sql`
+      UPDATE documents SET latest_artifact_id = ${artifactId} WHERE id = ${doc.id}
     `;
 
     // 새 잡 enqueue (queued 상태)
@@ -155,12 +172,11 @@ describe("document repository", () => {
     const afterEnqueue = await repository.getDocument(doc.id);
     // renderStatus는 rendering (최신 잡이 queued)
     expect(afterEnqueue?.renderStatus).toBe("rendering");
-    // 하지만 renderedHtml은 직전 succeeded에서 유지
-    expect(afterEnqueue?.renderedHtml).toBe("<h1>Previous</h1>");
-    expect(afterEnqueue?.renderedAt).not.toBeNull();
+    // 하지만 latestArtifactId는 직전 succeeded에서 유지
+    expect(afterEnqueue?.latestArtifactId).toBe(artifactId);
   });
 
-  it("failed 잡은 renderStatus error, renderedHtml null, renderError에 log", async () => {
+  it("failed 잡은 renderStatus error, latestArtifactId null, renderError에 log", async () => {
     const doc = await repository.getOrCreateSeedDocument();
 
     await sql`
@@ -170,7 +186,7 @@ describe("document repository", () => {
 
     const afterFailed = await repository.getDocument(doc.id);
     expect(afterFailed?.renderStatus).toBe("error");
-    expect(afterFailed?.renderedHtml).toBeNull();
+    expect(afterFailed?.latestArtifactId).toBeNull();
     expect(afterFailed?.renderError).toBe("render error: parse failed");
   });
 });
