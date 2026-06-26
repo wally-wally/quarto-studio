@@ -26,5 +26,6 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /tmp/requirements.txt \
     && quarto check jupyter
+RUN mkdir -p /opt/mpl && chmod 777 /opt/mpl
 
 WORKDIR /work
