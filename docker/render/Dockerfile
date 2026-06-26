@@ -39,4 +39,25 @@ COPY install-r-packages.R /tmp/install-r-packages.R
 RUN Rscript /tmp/install-r-packages.R \
     && quarto check knitr
 
+# --- Julia ---
+ARG JULIA_VERSION=1.10.4
+ENV JULIA_DEPOT_PATH=/opt/julia-depot
+ENV JULIA_PROJECT=/opt/julia-env
+ENV PATH="/opt/julia/bin:$PATH"
+RUN set -eux; \
+    deb_arch="$(dpkg --print-architecture)"; \
+    case "$deb_arch" in \
+      amd64) jl_arch=x86_64; jl_dir=x64 ;; \
+      arm64) jl_arch=aarch64; jl_dir=aarch64 ;; \
+      *) echo "unsupported arch: $deb_arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://julialang-s3.julialang.org/bin/linux/${jl_dir}/1.10/julia-${JULIA_VERSION}-linux-${jl_arch}.tar.gz" \
+      | tar -xz -C /opt; \
+    mv "/opt/julia-${JULIA_VERSION}" /opt/julia; \
+    julia --version
+COPY julia/Project.toml julia/Manifest.toml /opt/julia-env/
+RUN julia -e 'using Pkg; Pkg.Registry.add("General"); Pkg.resolve(); Pkg.instantiate(); Pkg.precompile()' \
+    && julia -e 'using IJulia; IJulia.installkernel("Julia")' \
+    && chmod -R a+rX /opt/julia-depot
+
 WORKDIR /work
