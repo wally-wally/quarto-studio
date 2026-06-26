@@ -1,0 +1,41 @@
+# ---- base ----
+FROM node:24-slim AS base
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+
+# ---- deps ----
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# ---- runner ----
+FROM base AS runner
+WORKDIR /app
+
+# docker CLI 설치: 워커가 일회용 렌더 컨테이너(sibling-container)를 spawn하기 위함.
+# Debian의 docker.io는 너무 구버전(API 1.41)이라 최신 데몬(min 1.44)이 거부함 →
+# 공식 정적 CLI 바이너리(버전 핀)를 받아 설치(API 1.47, apt repo codename 의존 없음).
+ARG DOCKER_CLI_VERSION=27.5.1
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
+      | tar -xz -C /tmp && \
+    mv /tmp/docker/docker /usr/local/bin/docker && rm -rf /tmp/docker && \
+    docker --version
+
+# 의존성 + 소스 복사
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json pnpm-lock.yaml tsconfig.json ./
+COPY worker/ ./worker/
+COPY src/lib/ ./src/lib/
+COPY scripts/ ./scripts/
+
+ENV NODE_ENV=production
+ENV DATABASE_URL=""
+ENV ARTIFACT_DIR="/artifacts"
+ENV DOCKER_HOST=""
+ENV QUARTO_RENDER_IMAGE="quarto-render:dev"
+ENV RENDER_WORK_DIR="/work-root"
+ENV RENDER_WORK_VOLUME=""
+
+CMD ["pnpm", "worker"]
