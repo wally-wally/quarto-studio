@@ -60,4 +60,20 @@ RUN julia -e 'using Pkg; Pkg.Registry.add("General"); Pkg.resolve(); Pkg.instant
     && julia -e 'using IJulia; IJulia.installkernel("Julia")' \
     && chmod -R a+rX /opt/julia-depot
 
+# --- Korean fonts + engine config ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      fonts-nanum fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+COPY conf/matplotlibrc /opt/mpl/matplotlibrc
+COPY conf/Rprofile.site /etc/R/Rprofile.site
+COPY conf/fonts-local.conf /etc/fonts/local.conf
+COPY conf/startup.jl /opt/julia-depot/config/startup.jl
+RUN fc-cache -f \
+    && rm -rf /opt/mpl/fontlist-*.json \
+    && fc-list | grep -i nanum
+
+# UTF-8 로케일: R의 멀티바이트(한글) 그래픽 렌더에 필수.
+# 기본 POSIX 로케일에서는 한글이 두부/유니코드 escape로 깨진다.
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+
 WORKDIR /work

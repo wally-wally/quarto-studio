@@ -1,0 +1,22 @@
+local({
+  nanum <- "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+  if (!file.exists(nanum)) return(invisible())
+  if (!requireNamespace("showtext", quietly = TRUE) ||
+      !requireNamespace("sysfonts", quietly = TRUE)) {
+    return(invisible())
+  }
+  # 예약 패밀리('sans')는 수정 불가 → NanumGothic을 named family로 등록.
+  sysfonts::font_add(family = "NanumGothic", regular = nanum)
+  showtext::showtext_auto()
+  # ggplot2가 로드되면 기본 텍스트 폰트를 NanumGothic으로 바꿔
+  # 사용자가 family를 지정하지 않아도 한글이 렌더되게 한다.
+  setHook(
+    packageEvent("ggplot2", "onLoad"),
+    function(...) {
+      try(
+        ggplot2::theme_update(text = ggplot2::element_text(family = "NanumGothic")),
+        silent = TRUE
+      )
+    }
+  )
+})

@@ -1,0 +1,11 @@
+---
+title: "ggplot 한글 smoke"
+format: html
+---
+
+```{r}
+library(ggplot2)
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  labs(title = "한글 제목 테스트", x = "배기량", y = "연비")
+```

@@ -1,0 +1,14 @@
+---
+title: "matplotlib 한글 smoke"
+format: html
+jupyter: python3
+---
+
+```{python}
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3], [1, 4, 9])
+ax.set_title("한글 제목 테스트")
+ax.set_xlabel("가로축")
+ax.set_ylabel("세로축")
+```
