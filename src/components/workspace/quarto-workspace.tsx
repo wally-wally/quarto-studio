@@ -253,7 +253,7 @@ export function QuartoWorkspace({
         <div className="topbar-status" aria-label="작업 환경">
           <span className="status-pill">
             <Database size={14} aria-hidden="true" />
-            SQLite
+            Postgres
           </span>
           <span className="status-pill">
             <Server size={14} aria-hidden="true" />

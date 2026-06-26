@@ -40,7 +40,7 @@ format: html
 
 # Getting Started
 
-이 문서는 SQLite에 저장되고 Quarto로 렌더링됩니다.
+이 문서는 Postgres에 저장되고 Quarto로 렌더링됩니다.
 
 ::: {.callout-note}
 코드 실행은 기본적으로 꺼져 있습니다.
