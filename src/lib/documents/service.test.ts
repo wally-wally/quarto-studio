@@ -274,7 +274,7 @@ describe("document service", () => {
       contentSnapshot: "# Quarterly Report",
       executeCode: true,
     });
-    expect(workspace.activeDocument).toEqual(
+    expect(workspace.workspace.activeDocument).toEqual(
       expect.objectContaining({
         id: "doc-1",
         renderStatus: "rendering",

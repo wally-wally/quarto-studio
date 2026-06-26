@@ -95,14 +95,15 @@ export function createDocumentService({ repository }: Dependencies) {
       );
     },
 
-    async renderDocument(input: SaveDocumentInput): Promise<WorkspaceState> {
+    async renderDocument(input: SaveDocumentInput): Promise<{ workspace: WorkspaceState; jobId: string }> {
       const savedDocument = await repository.updateDocument(input);
-      await repository.enqueueRenderJob({
+      const { jobId } = await repository.enqueueRenderJob({
         documentId: savedDocument.id,
         contentSnapshot: input.content,
         executeCode: input.executeCode,
       });
-      return buildWorkspace(assertDocument(await repository.getDocument(savedDocument.id), savedDocument.id));
+      const workspace = await buildWorkspace(assertDocument(await repository.getDocument(savedDocument.id), savedDocument.id));
+      return { workspace, jobId };
     },
 
     async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {

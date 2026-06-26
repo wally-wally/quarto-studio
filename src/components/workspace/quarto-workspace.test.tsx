@@ -46,7 +46,7 @@ const renderWorkspace = (
   const defaultProps = {
     initialWorkspace: workspace,
     saveDocument: vi.fn(async () => workspace),
-    renderDocument: vi.fn(async () => workspace),
+    renderDocument: vi.fn(async () => ({ workspace, jobId: "job-1" })),
     selectDocument: vi.fn(async () => workspace),
     createDocument: vi.fn(async () => workspace),
     renameDocument: vi.fn(async () => workspace),
@@ -118,7 +118,7 @@ describe("QuartoWorkspace", () => {
 
   it("제목과 QMD를 수정한 뒤 렌더하면 draft 내용으로 렌더 액션을 호출한다", async () => {
     const user = userEvent.setup();
-    const renderDocument = vi.fn(async () => workspace);
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
 
     renderWorkspace({ renderDocument });
 
@@ -138,7 +138,7 @@ describe("QuartoWorkspace", () => {
 
   it("저장 또는 렌더링이 진행 중이면 draft 입력과 문서 이동을 잠가 최신 로컬 수정을 막는다", async () => {
     const user = userEvent.setup();
-    const renderDeferred = createDeferred<WorkspaceState>();
+    const renderDeferred = createDeferred<{ workspace: WorkspaceState; jobId: string }>();
     const renderDocument = vi.fn(() => renderDeferred.promise);
 
     renderWorkspace({ renderDocument });
@@ -154,7 +154,7 @@ describe("QuartoWorkspace", () => {
       screen.getByRole("button", { name: "미리보기 다시 렌더" })
     ).toBeDisabled();
 
-    renderDeferred.resolve(workspace);
+    renderDeferred.resolve({ workspace, jobId: "job-1" });
   });
 
   it("저장 액션이 실패하면 한국어 안내와 오류 메시지를 alert로 보여준다", async () => {

@@ -10,6 +10,7 @@ import { PreviewPane } from "./preview-pane";
 import type {
   CreateDocumentAction,
   DeleteDocumentAction,
+  RenderDocumentAction,
   RenameDocumentAction,
   SelectDocumentAction,
   WorkspaceAction,
@@ -19,7 +20,7 @@ import type {
 type QuartoWorkspaceProps = {
   initialWorkspace: WorkspaceState;
   saveDocument: WorkspaceAction;
-  renderDocument: WorkspaceAction;
+  renderDocument: RenderDocumentAction;
   selectDocument: SelectDocumentAction;
   createDocument: CreateDocumentAction;
   renameDocument: RenameDocumentAction;
@@ -64,6 +65,18 @@ export function QuartoWorkspace({
     startTransition(async () => {
       try {
         applyWorkspace(await action(actionInput));
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
+    });
+  };
+
+  const handleRender = () => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        const { workspace: nextWorkspace } = await renderDocument(actionInput);
+        applyWorkspace(nextWorkspace);
       } catch (error) {
         setActionError(toActionErrorMessage(error));
       }
@@ -197,12 +210,12 @@ export function QuartoWorkspace({
             setDraft((current) => ({ ...current, executeCode }))
           }
           onSave={() => runWorkspaceAction(saveDocument)}
-          onRender={() => runWorkspaceAction(renderDocument)}
+          onRender={handleRender}
         />
         <PreviewPane
           document={draft}
           isBusy={isPending}
-          onRender={() => runWorkspaceAction(renderDocument)}
+          onRender={handleRender}
         />
       </div>
       {actionError ? (

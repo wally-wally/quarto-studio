@@ -8,6 +8,7 @@ import type {
   RenameDocumentInput,
   SaveDocumentInput,
 } from "@/lib/documents/types";
+import type { WorkspaceState } from "@/lib/documents/service";
 import { revalidatePath } from "next/cache";
 
 export async function selectDocumentAction(documentId: string) {
@@ -42,11 +43,11 @@ export async function deleteDocumentAction(input: DeleteDocumentInput) {
   return workspace;
 }
 
-export async function renderDocumentAction(input: SaveDocumentInput) {
-  const workspace = await createAppDocumentService().renderDocument(input);
+export async function renderDocumentAction(input: SaveDocumentInput): Promise<{ workspace: WorkspaceState; jobId: string }> {
+  const result = await createAppDocumentService().renderDocument(input);
   revalidatePath("/");
 
-  return workspace;
+  return result;
 }
 
 export async function getRenderJobAction(jobId: string): Promise<RenderJobRecord | null> {
