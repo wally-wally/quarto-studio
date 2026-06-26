@@ -4,6 +4,7 @@ import type { DocumentRecord } from "@/lib/documents/types";
 type PreviewPaneProps = {
   document: DocumentRecord;
   isBusy: boolean;
+  isRendering: boolean;
   onRender: () => void;
 };
 
@@ -13,6 +14,7 @@ const emptyPreviewHtml =
 export function PreviewPane({
   document,
   isBusy,
+  isRendering,
   onRender
 }: PreviewPaneProps) {
   const html = document.renderedHtml ?? emptyPreviewHtml;
@@ -38,6 +40,11 @@ export function PreviewPane({
           <RefreshCw size={16} aria-hidden="true" />
           다시 렌더
         </button>
+        {isRendering ? (
+          <span className="rendering-indicator" aria-live="polite">
+            렌더링 중…
+          </span>
+        ) : null}
       </div>
       <iframe
         className="preview-frame"

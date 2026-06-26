@@ -50,7 +50,8 @@ const renderWorkspace = (
     selectDocument: vi.fn(async () => workspace),
     createDocument: vi.fn(async () => workspace),
     renameDocument: vi.fn(async () => workspace),
-    deleteDocument: vi.fn(async () => workspace)
+    deleteDocument: vi.fn(async () => workspace),
+    getRenderJob: vi.fn(async () => null)
   };
 
   return render(<QuartoWorkspace {...defaultProps} {...props} />);

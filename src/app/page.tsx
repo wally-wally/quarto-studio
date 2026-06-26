@@ -3,6 +3,7 @@ import { createAppDocumentService } from "@/lib/db/app-service";
 import {
   createDocumentAction,
   deleteDocumentAction,
+  getRenderJobAction,
   renderDocumentAction,
   renameDocumentAction,
   saveDocumentAction,
@@ -23,6 +24,7 @@ export default async function HomePage() {
       createDocument={createDocumentAction}
       renameDocument={renameDocumentAction}
       deleteDocument={deleteDocumentAction}
+      getRenderJob={getRenderJobAction}
     />
   );
 }
