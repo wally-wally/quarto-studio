@@ -185,4 +185,20 @@ describe("미인증 요청", () => {
   it("renderDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
     await expect(renderDocumentAction(documentInput)).rejects.toThrow("인증이 필요합니다");
   });
+
+  it("renameDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(renameDocumentAction(renameInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("deleteDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(deleteDocumentAction(deleteInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("selectDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(selectDocumentAction("doc-1")).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("getRenderJobAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(getRenderJobAction("job-1")).rejects.toThrow("인증이 필요합니다");
+  });
 });

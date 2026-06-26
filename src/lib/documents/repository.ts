@@ -300,25 +300,26 @@ export function createDocumentRepository(sql: Sql) {
         throw new Error(`Document not found: ${input.documentId}`);
       }
 
-      // 2. Quota check: count active jobs for this owner
-      const quotaRows = await sql<{ count: string }[]>`
-        SELECT COUNT(*) as count FROM render_jobs
-        WHERE requested_by = ${input.ownerId} AND status IN ('queued', 'running')
-      `;
-      const activeCount = Number(quotaRows[0].count);
-      if (activeCount >= RENDER_QUOTA) {
-        throw new Error("렌더 동시 실행 한도 초과");
-      }
+      // 2 & 3. Quota check + insert in a single transaction to prevent race conditions
+      return await sql.begin(async (tx) => {
+        const quotaRows = await tx<{ count: string }[]>`
+          SELECT COUNT(*) as count FROM render_jobs
+          WHERE requested_by = ${input.ownerId} AND status IN ('queued', 'running')
+        `;
+        const activeCount = Number(quotaRows[0].count);
+        if (activeCount >= RENDER_QUOTA) {
+          throw new Error("렌더 동시 실행 한도 초과");
+        }
 
-      // 3. Insert the render job
-      const inserted = await sql<{ id: string }[]>`
-        INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, requested_by)
-        VALUES (${input.documentId}, 'queued', ${input.contentSnapshot}, ${input.executeCode}, ${input.ownerId})
-        RETURNING id
-      `;
-      const jobId = inserted[0].id;
-      await sql`SELECT pg_notify('render_jobs', ${jobId})`;
-      return { jobId };
+        const inserted = await tx<{ id: string }[]>`
+          INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code, requested_by)
+          VALUES (${input.documentId}, 'queued', ${input.contentSnapshot}, ${input.executeCode}, ${input.ownerId})
+          RETURNING id
+        `;
+        const jobId = inserted[0].id;
+        await tx`SELECT pg_notify('render_jobs', ${jobId})`;
+        return { jobId };
+      });
     },
 
     async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
