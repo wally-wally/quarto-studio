@@ -152,6 +152,8 @@ git diff --check
 
 Markdown과 Observable JS 예제는 Quarto CLI만 있으면 바로 렌더링되고, 나머지는 해당 언어 런타임 설치 후 코드 실행을 켜야 합니다.
 
+렌더 이미지(Quarto + Python/R/Julia + 한글 폰트)로 전체 예제를 한 번에 검증하려면: `docker build -t quarto-render:dev docker/render && docker/render/verify.sh`
+
 ## 렌더 정책
 
 렌더링 시 임시 디렉토리에 `index.qmd`와 `_quarto.yml`을 만들고, Quarto CLI로 HTML을 생성합니다. 코드 실행 여부는 문서의 `executeCode` 값으로 제어됩니다.
