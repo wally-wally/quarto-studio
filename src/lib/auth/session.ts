@@ -51,9 +51,8 @@ export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(COOKIE);
   if (sessionCookie) {
-    const sessionId = sessionCookie.value;
     const sql = getSql();
-    await sql`DELETE FROM sessions WHERE id = ${sessionId}`;
+    await sql`DELETE FROM sessions WHERE id = ${sessionCookie.value}`;
   }
-  await clearSessionCookie();
+  cookieStore.delete(COOKIE);
 }
