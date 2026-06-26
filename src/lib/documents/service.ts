@@ -1,25 +1,23 @@
-import type { RenderResult } from "@/lib/quarto/render";
-import { renderDocumentToHtml } from "@/lib/quarto/render";
 import type {
   CreateDocumentInput,
   DeleteDocumentInput,
   DocumentRecord,
   DocumentSummary,
+  RenderJobRecord,
   RenameDocumentInput,
   SaveDocumentInput,
 } from "./types";
 
 type DocumentRepository = {
-  listDocuments(): DocumentSummary[];
-  getDocument(id: string): DocumentRecord | null;
-  getOrCreateSeedDocument(): DocumentRecord;
-  createDocument(input: CreateDocumentInput): DocumentRecord;
-  renameDocument(input: Pick<RenameDocumentInput, "id" | "title">): DocumentRecord;
-  deleteDocument(id: string): void;
-  updateDocument(input: SaveDocumentInput): DocumentRecord;
-  markRendering(id: string): void;
-  markRenderSuccess(id: string, renderedHtml: string): void;
-  markRenderError(id: string, renderError: string): void;
+  listDocuments(): Promise<DocumentSummary[]>;
+  getDocument(id: string): Promise<DocumentRecord | null>;
+  getOrCreateSeedDocument(): Promise<DocumentRecord>;
+  createDocument(input: CreateDocumentInput): Promise<DocumentRecord>;
+  renameDocument(input: Pick<RenameDocumentInput, "id" | "title">): Promise<DocumentRecord>;
+  deleteDocument(id: string): Promise<void>;
+  updateDocument(input: SaveDocumentInput): Promise<DocumentRecord>;
+  enqueueRenderJob(input: { documentId: string; contentSnapshot: string; executeCode: boolean }): Promise<{ jobId: string }>;
+  getRenderJob(jobId: string): Promise<RenderJobRecord | null>;
 };
 
 export type WorkspaceState = {
@@ -29,7 +27,6 @@ export type WorkspaceState = {
 
 type Dependencies = {
   repository: DocumentRepository;
-  renderDocument?: (document: DocumentRecord) => Promise<RenderResult>;
 };
 
 function assertDocument(
@@ -43,38 +40,31 @@ function assertDocument(
   return document;
 }
 
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export function createDocumentService({
-  repository,
-  renderDocument = renderDocumentToHtml,
-}: Dependencies) {
-  const buildWorkspace = (activeDocument: DocumentRecord): WorkspaceState => ({
-    documents: repository.listDocuments(),
+export function createDocumentService({ repository }: Dependencies) {
+  const buildWorkspace = async (activeDocument: DocumentRecord): Promise<WorkspaceState> => ({
+    documents: await repository.listDocuments(),
     activeDocument,
   });
 
   return {
-    getInitialWorkspace(): WorkspaceState {
-      return buildWorkspace(repository.getOrCreateSeedDocument());
+    async getInitialWorkspace(): Promise<WorkspaceState> {
+      return buildWorkspace(await repository.getOrCreateSeedDocument());
     },
 
-    getWorkspace(documentId: string): WorkspaceState {
-      return buildWorkspace(assertDocument(repository.getDocument(documentId), documentId));
+    async getWorkspace(documentId: string): Promise<WorkspaceState> {
+      return buildWorkspace(assertDocument(await repository.getDocument(documentId), documentId));
     },
 
-    saveDocument(input: SaveDocumentInput): WorkspaceState {
-      return buildWorkspace(repository.updateDocument(input));
+    async saveDocument(input: SaveDocumentInput): Promise<WorkspaceState> {
+      return buildWorkspace(await repository.updateDocument(input));
     },
 
-    createDocument(input: CreateDocumentInput): WorkspaceState {
-      return buildWorkspace(repository.createDocument(input));
+    async createDocument(input: CreateDocumentInput): Promise<WorkspaceState> {
+      return buildWorkspace(await repository.createDocument(input));
     },
 
-    renameDocument(input: RenameDocumentInput): WorkspaceState {
-      const renamedDocument = repository.renameDocument({
+    async renameDocument(input: RenameDocumentInput): Promise<WorkspaceState> {
+      const renamedDocument = await repository.renameDocument({
         id: input.id,
         title: input.title,
       });
@@ -82,59 +72,41 @@ export function createDocumentService({
         input.id === input.activeDocumentId
           ? renamedDocument
           : assertDocument(
-              repository.getDocument(input.activeDocumentId),
+              await repository.getDocument(input.activeDocumentId),
               input.activeDocumentId,
             );
 
       return buildWorkspace(activeDocument);
     },
 
-    deleteDocument(input: DeleteDocumentInput): WorkspaceState {
-      repository.deleteDocument(input.id);
+    async deleteDocument(input: DeleteDocumentInput): Promise<WorkspaceState> {
+      await repository.deleteDocument(input.id);
 
-      const documents = repository.listDocuments();
+      const documents = await repository.listDocuments();
       if (documents.length === 0) {
-        return buildWorkspace(repository.createDocument({ title: "새 문서" }));
+        return buildWorkspace(await repository.createDocument({ title: "새 문서" }));
       }
 
       const nextActiveDocumentId =
         input.id === input.activeDocumentId ? documents[0].id : input.activeDocumentId;
 
       return buildWorkspace(
-        assertDocument(repository.getDocument(nextActiveDocumentId), nextActiveDocumentId),
+        assertDocument(await repository.getDocument(nextActiveDocumentId), nextActiveDocumentId),
       );
     },
 
     async renderDocument(input: SaveDocumentInput): Promise<WorkspaceState> {
-      const savedDocument = repository.updateDocument(input);
+      const savedDocument = await repository.updateDocument(input);
+      await repository.enqueueRenderJob({
+        documentId: savedDocument.id,
+        contentSnapshot: input.content,
+        executeCode: input.executeCode,
+      });
+      return buildWorkspace(assertDocument(await repository.getDocument(savedDocument.id), savedDocument.id));
+    },
 
-      repository.markRendering(savedDocument.id);
-      let result: RenderResult;
-
-      try {
-        result = await renderDocument(savedDocument);
-      } catch (error) {
-        repository.markRenderError(savedDocument.id, toErrorMessage(error));
-        const latestDocument = assertDocument(
-          repository.getDocument(savedDocument.id),
-          savedDocument.id,
-        );
-
-        return buildWorkspace(latestDocument);
-      }
-
-      if (result.ok) {
-        repository.markRenderSuccess(savedDocument.id, result.html);
-      } else {
-        repository.markRenderError(savedDocument.id, result.error);
-      }
-
-      const latestDocument = assertDocument(
-        repository.getDocument(savedDocument.id),
-        savedDocument.id,
-      );
-
-      return buildWorkspace(latestDocument);
+    async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
+      return repository.getRenderJob(jobId);
     },
   };
 }

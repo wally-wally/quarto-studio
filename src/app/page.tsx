@@ -11,8 +11,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const initialWorkspace = createAppDocumentService().getInitialWorkspace();
+export default async function HomePage() {
+  const initialWorkspace = await createAppDocumentService().getInitialWorkspace();
 
   return (
     <QuartoWorkspace

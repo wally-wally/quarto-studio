@@ -47,3 +47,13 @@ export type DeleteDocumentInput = {
   id: string;
   activeDocumentId: string;
 };
+
+export type RenderJobRecord = {
+  id: string;
+  documentId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "timed_out";
+  log: string | null;
+  renderedHtml: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+};
