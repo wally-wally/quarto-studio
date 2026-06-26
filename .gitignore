@@ -16,3 +16,7 @@ out/
 *.db-shm
 *.db-wal
 *.tsbuildinfo
+docker/render/smoke/*.html
+docker/render/smoke/*_files/
+docker/render/smoke/.quarto/
+docker/render/**/index_files/

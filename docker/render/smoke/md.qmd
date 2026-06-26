@@ -1,0 +1,10 @@
+---
+title: "Markdown smoke"
+format: html
+---
+
+# 안녕하세요
+
+순수 마크다운 렌더 확인. **굵게** _기울임_.
+
+$$ E = mc^2 $$
