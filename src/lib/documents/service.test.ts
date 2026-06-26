@@ -11,6 +11,7 @@ import type {
 } from "./types";
 
 const baseTimestamp = "2026-06-24T00:00:00.000Z";
+const TEST_OWNER_ID = "user-123";
 
 function toSummary(document: DocumentRecord): DocumentSummary {
   return {
@@ -48,16 +49,16 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
   const seedDocument = initialDocuments[0] ?? createDocument();
 
   return {
-    listDocuments: vi.fn(async () =>
+    listDocuments: vi.fn(async (_ownerId: string) =>
       [...documents.values()]
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
         .map(toSummary),
     ),
-    getDocument: vi.fn(async (id: string) => {
+    getDocument: vi.fn(async (_ownerId: string, id: string) => {
       const document = documents.get(id);
       return document ? { ...document } : null;
     }),
-    getOrCreateSeedDocument: vi.fn(async () => {
+    getOrCreateSeedDocument: vi.fn(async (_ownerId: string) => {
       const existing = [...documents.values()][0];
       if (existing) {
         return { ...existing };
@@ -66,7 +67,7 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
       documents.set(seedDocument.id, { ...seedDocument });
       return { ...seedDocument };
     }),
-    updateDocument: vi.fn(async (input: SaveDocumentInput) => {
+    updateDocument: vi.fn(async (_ownerId: string, input: SaveDocumentInput) => {
       const existing = documents.get(input.id);
       if (!existing) {
         throw new Error(`Document not found: ${input.id}`);
@@ -83,7 +84,7 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
 
       return { ...updated };
     }),
-    createDocument: vi.fn(async (input: CreateDocumentInput) => {
+    createDocument: vi.fn(async (_ownerId: string, input: CreateDocumentInput) => {
       const document = createDocument({
         id: `doc-${documents.size + 1}`,
         title: input.title,
@@ -95,7 +96,7 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
 
       return { ...document };
     }),
-    renameDocument: vi.fn(async (input: Pick<RenameDocumentInput, "id" | "title">) => {
+    renameDocument: vi.fn(async (_ownerId: string, input: Pick<RenameDocumentInput, "id" | "title">) => {
       const existing = documents.get(input.id);
       if (!existing) {
         throw new Error(`Document not found: ${input.id}`);
@@ -110,12 +111,12 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
 
       return { ...renamed };
     }),
-    deleteDocument: vi.fn(async (id: DeleteDocumentInput["id"]) => {
+    deleteDocument: vi.fn(async (_ownerId: string, id: DeleteDocumentInput["id"]) => {
       if (!documents.delete(id)) {
         throw new Error(`Document not found: ${id}`);
       }
     }),
-    enqueueRenderJob: vi.fn(async (_input: { documentId: string; contentSnapshot: string; executeCode: boolean }) => {
+    enqueueRenderJob: vi.fn(async (_input: { ownerId: string; documentId: string; contentSnapshot: string; executeCode: boolean }) => {
       // After enqueueing, update the document in our mock to show 'rendering'
       const doc = documents.get(_input.documentId);
       if (doc) {
@@ -133,10 +134,10 @@ describe("document service", () => {
     const repository = createMockRepository([seedDocument]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.getInitialWorkspace();
+    const workspace = await service.getInitialWorkspace(TEST_OWNER_ID);
 
-    expect(repository.getOrCreateSeedDocument).toHaveBeenCalledOnce();
-    expect(repository.listDocuments).toHaveBeenCalledOnce();
+    expect(repository.getOrCreateSeedDocument).toHaveBeenCalledWith(TEST_OWNER_ID);
+    expect(repository.listDocuments).toHaveBeenCalledWith(TEST_OWNER_ID);
     expect(workspace.activeDocument).toEqual(seedDocument);
     expect(workspace.documents).toEqual([toSummary(seedDocument)]);
   });
@@ -145,9 +146,9 @@ describe("document service", () => {
     const repository = createMockRepository([createDocument()]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.createDocument({ title: "새 문서" });
+    const workspace = await service.createDocument(TEST_OWNER_ID, { title: "새 문서" });
 
-    expect(repository.createDocument).toHaveBeenCalledWith({ title: "새 문서" });
+    expect(repository.createDocument).toHaveBeenCalledWith(TEST_OWNER_ID, { title: "새 문서" });
     expect(workspace.activeDocument).toEqual(
       expect.objectContaining({
         id: "doc-2",
@@ -165,13 +166,13 @@ describe("document service", () => {
     const repository = createMockRepository([createDocument()]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.renameDocument({
+    const workspace = await service.renameDocument(TEST_OWNER_ID, {
       id: "doc-1",
       title: "수정된 제목",
       activeDocumentId: "doc-1",
     });
 
-    expect(repository.renameDocument).toHaveBeenCalledWith({
+    expect(repository.renameDocument).toHaveBeenCalledWith(TEST_OWNER_ID, {
       id: "doc-1",
       title: "수정된 제목",
     });
@@ -193,7 +194,7 @@ describe("document service", () => {
     const repository = createMockRepository([activeDocument, sidebarDocument]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.renameDocument({
+    const workspace = await service.renameDocument(TEST_OWNER_ID, {
       id: "doc-2",
       title: "목록에서 수정",
       activeDocumentId: "doc-1",
@@ -218,12 +219,12 @@ describe("document service", () => {
     const repository = createMockRepository([firstDocument, nextDocument]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.deleteDocument({
+    const workspace = await service.deleteDocument(TEST_OWNER_ID, {
       id: "doc-1",
       activeDocumentId: "doc-1",
     });
 
-    expect(repository.deleteDocument).toHaveBeenCalledWith("doc-1");
+    expect(repository.deleteDocument).toHaveBeenCalledWith(TEST_OWNER_ID, "doc-1");
     expect(workspace.activeDocument).toEqual(nextDocument);
     expect(workspace.documents).toEqual([toSummary(nextDocument)]);
   });
@@ -232,12 +233,12 @@ describe("document service", () => {
     const repository = createMockRepository([createDocument()]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.deleteDocument({
+    const workspace = await service.deleteDocument(TEST_OWNER_ID, {
       id: "doc-1",
       activeDocumentId: "doc-1",
     });
 
-    expect(repository.createDocument).toHaveBeenCalledWith({ title: "새 문서" });
+    expect(repository.createDocument).toHaveBeenCalledWith(TEST_OWNER_ID, { title: "새 문서" });
     expect(workspace.activeDocument).toEqual(
       expect.objectContaining({
         id: "doc-1",
@@ -253,7 +254,7 @@ describe("document service", () => {
     const repository = createMockRepository([createDocument()]);
     const service = createDocumentService({ repository });
 
-    const workspace = await service.renderDocument({
+    const workspace = await service.renderDocument(TEST_OWNER_ID, {
       id: "doc-1",
       title: "Quarterly Report",
       slug: "quarterly-report",
@@ -262,6 +263,7 @@ describe("document service", () => {
     });
 
     expect(repository.updateDocument).toHaveBeenCalledWith(
+      TEST_OWNER_ID,
       expect.objectContaining({
         id: "doc-1",
         title: "Quarterly Report",
@@ -270,6 +272,7 @@ describe("document service", () => {
       }),
     );
     expect(repository.enqueueRenderJob).toHaveBeenCalledWith({
+      ownerId: TEST_OWNER_ID,
       documentId: "doc-1",
       contentSnapshot: "# Quarterly Report",
       executeCode: true,
