@@ -18,7 +18,7 @@ export default async function HomePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const initialWorkspace = await createAppDocumentService().getInitialWorkspace();
+  const initialWorkspace = await createAppDocumentService().getInitialWorkspace(user.id);
 
   return (
     <QuartoWorkspace
