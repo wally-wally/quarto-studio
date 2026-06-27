@@ -5,8 +5,13 @@ import { artifactStore } from "@/lib/storage/artifact-store";
 const HTML_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
   "X-Content-Type-Options": "nosniff",
+  // Quarto의 embed-resources는 테마·하이라이트 CSS를 <link href="data:text/css,…">로 임베드한다.
+  // style-src/script-src에 data: 를 허용하지 않으면 그 CSS/JS가 CSP에 차단되어 코드 하이라이팅·
+  // 복사 버튼·테마가 적용되지 않아 미리보기가 밋밋해진다. 미리보기는 sandbox(allow-scripts,
+  // same-origin 없음)로 격리되고 connect-src는 default-src('self'=opaque)로 묶여 외부 전송이
+  // 불가하므로 data: 리소스 허용은 안전하다.
   "Content-Security-Policy":
-    "sandbox allow-scripts; default-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;",
+    "sandbox allow-scripts; default-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-inline' data:; img-src 'self' data:; font-src 'self' data:;",
 };
 
 export async function GET(

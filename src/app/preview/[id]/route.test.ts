@@ -90,6 +90,10 @@ describe("GET /preview/[id]", () => {
     const csp = response.headers.get("Content-Security-Policy");
     expect(csp).toBeTruthy();
     expect(csp).toContain("sandbox allow-scripts");
+    // Quarto embed-resources는 CSS를 data:text/css 링크로 임베드한다.
+    // style-src/script-src에 data: 가 있어야 테마·하이라이트가 적용된다(회귀 방지).
+    expect(csp).toMatch(/style-src[^;]*\bdata:/);
+    expect(csp).toMatch(/script-src[^;]*\bdata:/);
   });
 
   it("X-Content-Type-Options nosniff header on 200 response", async () => {
