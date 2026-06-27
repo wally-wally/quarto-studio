@@ -64,6 +64,16 @@ describe("POST /api/ai/generate", () => {
     expect(res.status).toBe(400);
   });
 
+  it("모델이 없으면 400", async () => {
+    const res = await POST(makeRequest({ key: "sk", fields: { ...validFields, model: "" } }));
+    expect(res.status).toBe(400);
+  });
+
+  it("지원하지 않는 프로바이더면 400", async () => {
+    const res = await POST(makeRequest({ key: "sk", fields: { ...validFields, provider: "gemini" } }));
+    expect(res.status).toBe(400);
+  });
+
   it("해피패스: streamText를 호출하고 텍스트를 스트리밍한다", async () => {
     const txt = new File([new TextEncoder().encode("참고: 매출 데이터")], "ref.txt", { type: "text/plain" });
     const res = await POST(makeRequest({ key: "sk", fields: validFields, files: [txt] }));

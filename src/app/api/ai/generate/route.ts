@@ -23,7 +23,11 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const form = await req.formData();
-  const provider: AiProvider = form.get("provider") === "openai" ? "openai" : "anthropic";
+  const providerRaw = String(form.get("provider") ?? "");
+  if (providerRaw !== "anthropic" && providerRaw !== "openai") {
+    return Response.json({ error: "지원하지 않는 프로바이더입니다." }, { status: 400 });
+  }
+  const provider: AiProvider = providerRaw as AiProvider;
   const model = String(form.get("model") ?? "");
   const prompt = String(form.get("prompt") ?? "");
 
