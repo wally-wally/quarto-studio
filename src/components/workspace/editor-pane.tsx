@@ -1,4 +1,5 @@
-import { Play, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { Play, ToggleLeft, ToggleRight } from "lucide-react";
+import CodeEditor from "./code-editor";
 
 type EditorPaneProps = {
   title: string;
@@ -10,7 +11,6 @@ type EditorPaneProps = {
   onSlugChange: (value: string) => void;
   onContentChange: (value: string) => void;
   onExecuteCodeChange: (value: boolean) => void;
-  onSave: () => void;
   onRender: () => void;
 };
 
@@ -24,7 +24,6 @@ export function EditorPane({
   onSlugChange,
   onContentChange,
   onExecuteCodeChange,
-  onSave,
   onRender
 }: EditorPaneProps) {
   return (
@@ -64,15 +63,6 @@ export function EditorPane({
             {executeCode ? "실행" : "중지"}
           </button>
           <button
-            className="secondary-button"
-            type="button"
-            onClick={onSave}
-            disabled={isBusy}
-          >
-            <Save size={16} aria-hidden="true" />
-            저장
-          </button>
-          <button
             className="primary-button"
             type="button"
             onClick={onRender}
@@ -83,13 +73,10 @@ export function EditorPane({
           </button>
         </div>
       </div>
-      <textarea
-        aria-label="QMD content"
-        className="qmd-editor"
-        disabled={isBusy}
-        spellCheck={false}
+      <CodeEditor
         value={content}
-        onChange={(event) => onContentChange(event.target.value)}
+        onChange={onContentChange}
+        readOnly={isBusy}
       />
     </section>
   );

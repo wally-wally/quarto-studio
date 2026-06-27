@@ -529,31 +529,35 @@ input {
   cursor: pointer;
 }
 
-.qmd-editor {
+.qmd-codemirror {
   flex: 1;
-  width: 100%;
   min-height: 0;
-  overflow: auto;
-  resize: none;
-  border: 0;
-  outline: 0;
-  padding: 16px 16px 16px 52px;
-  background:
-    linear-gradient(#ffffff 31px, #eff5fb 32px),
-    linear-gradient(90deg, #f5f8fb 0, #f5f8fb 42px, transparent 42px);
-  background-size:
-    100% 32px,
-    100% 100%;
-  color: #23314a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    monospace;
-  font-size: 13px;
-  line-height: 32px;
+  overflow: hidden;
+  background: #ffffff;
 }
 
-.qmd-editor:focus-visible {
-  outline: 2px solid #38bdf8;
-  outline-offset: -2px;
+.qmd-codemirror .cm-editor {
+  height: 100%;
+}
+
+.qmd-codemirror .cm-editor.cm-focused {
+  outline: none;
+}
+
+.qmd-codemirror .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.qmd-codemirror .cm-gutters {
+  background: #f5f8fb;
+  border-right: 1px solid #e6eef7;
+  color: #94a3b8;
+}
+
+.qmd-codemirror .cm-content {
+  caret-color: #0f172a;
 }
 
 .preview-frame {

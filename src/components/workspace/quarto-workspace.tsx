@@ -68,17 +68,6 @@ export function QuartoWorkspace({
   const toActionErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
 
-  const runWorkspaceAction = (action: WorkspaceAction) => {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        applyWorkspace(await action(actionInput));
-      } catch (error) {
-        setActionError(toActionErrorMessage(error));
-      }
-    });
-  };
-
   const stopPolling = useCallback(() => {
     setPollingJobId(null);
     setIsPolling(false);
@@ -197,9 +186,26 @@ export function QuartoWorkspace({
 
   const hasDraftChanges =
     draft.title !== workspace.activeDocument.title ||
-    draft.slug !== workspace.activeDocument.slug ||
+    actionInput.slug !== workspace.activeDocument.slug ||
     draft.content !== workspace.activeDocument.content ||
     draft.executeCode !== workspace.activeDocument.executeCode;
+
+  // 자동 저장: 편집(draft 변경) 후 일정 시간 idle이면 백그라운드로 저장한다('저장' 버튼 대체).
+  // 렌더/문서 전환 시에도 저장되므로, 이는 "편집만 하고 떠나는" 경우의 유실을 막는다.
+  // draft는 건드리지 않고 baseline(workspace)만 갱신해, 저장 중 입력한 키를 잃지 않는다.
+  useEffect(() => {
+    if (!hasDraftChanges || isPending || isRendering) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      saveDocument(actionInput)
+        .then((saved) => setWorkspace(saved))
+        .catch(() => {
+          /* 자동 저장 실패는 조용히 — 렌더/전환 시 재시도된다 */
+        });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [actionInput, hasDraftChanges, isPending, isRendering, saveDocument]);
 
   const saveDraftIfNeeded = async () => {
     if (hasDraftChanges) {
@@ -321,7 +327,6 @@ export function QuartoWorkspace({
           onExecuteCodeChange={(executeCode) =>
             setDraft((current) => ({ ...current, executeCode }))
           }
-          onSave={() => runWorkspaceAction(saveDocument)}
           onRender={handleRender}
         />
         <PreviewPane

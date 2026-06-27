@@ -4,6 +4,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuartoWorkspace } from "./quarto-workspace";
 import type { WorkspaceState } from "./types";
 
+// CodeMirror 에디터는 jsdom에서 contenteditable이라 직접 테스트가 어렵다.
+// 테스트에선 동등한 textarea(aria-label="QMD content")로 대체한다.
+vi.mock("./code-editor", () => ({
+  default: ({
+    value,
+    onChange,
+    readOnly,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    readOnly?: boolean;
+  }) => (
+    <textarea
+      aria-label="QMD content"
+      value={value}
+      disabled={readOnly}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -93,17 +114,21 @@ describe("QuartoWorkspace", () => {
     );
   });
 
-  it("코드 실행 toggle과 저장 액션을 호출한다", async () => {
+  it("코드 실행 토글 등 편집 후 자동 저장이 draft를 저장한다", async () => {
     const user = userEvent.setup();
     const saveDocument = vi.fn(async () => workspace);
 
     renderWorkspace({ saveDocument });
 
     await user.click(screen.getByRole("switch", { name: "코드 실행" }));
-    await user.click(screen.getByRole("button", { name: "저장" }));
 
-    expect(saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ executeCode: true })
+    // 수동 '저장' 버튼은 제거됨 — 편집 후 디바운스 자동 저장이 동작해야 한다.
+    await waitFor(
+      () =>
+        expect(saveDocument).toHaveBeenCalledWith(
+          expect.objectContaining({ executeCode: true })
+        ),
+      { timeout: 2500 }
     );
   });
 
@@ -161,21 +186,6 @@ describe("QuartoWorkspace", () => {
     ).toBeDisabled();
 
     renderDeferred.resolve({ workspace, jobId: "job-1" });
-  });
-
-  it("저장 액션이 실패하면 한국어 안내와 오류 메시지를 alert로 보여준다", async () => {
-    const user = userEvent.setup();
-    const saveDocument = vi.fn(async () => {
-      throw new Error("database unavailable");
-    });
-
-    renderWorkspace({ saveDocument });
-
-    await user.click(screen.getByRole("button", { name: "저장" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "작업을 완료하지 못했습니다: database unavailable"
-    );
   });
 
   it("문서 이동 전 자동 저장이 실패하면 오류를 표시하고 대상 문서를 선택하지 않는다", async () => {
