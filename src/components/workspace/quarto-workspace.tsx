@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlertCircle, Database, Server } from "lucide-react";
+import { AlertCircle, User } from "lucide-react";
 import { normalizeSlug } from "@/lib/documents/slug";
 import type { RenderJobRecord, SaveDocumentInput } from "@/lib/documents/types";
 import { logoutAction } from "@/lib/auth/actions";
@@ -98,6 +98,31 @@ export function QuartoWorkspace({
         setActionError(toActionErrorMessage(error));
       }
     });
+  };
+
+  const handleDownload = async () => {
+    const artifactId = draft.latestArtifactId;
+    if (!artifactId) {
+      return;
+    }
+    try {
+      const response = await fetch(`/preview/${artifactId}`);
+      if (!response.ok) {
+        throw new Error(`status ${response.status}`);
+      }
+      const html = await response.text();
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${draft.slug || draft.title || "preview"}.html`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setActionError("미리보기 HTML 다운로드에 실패했습니다.");
+    }
   };
 
   useEffect(() => {
@@ -257,16 +282,8 @@ export function QuartoWorkspace({
           <span>Quarto Studio</span>
         </div>
         <div className="topbar-status" aria-label="작업 환경">
-          <span className="status-pill">
-            <Database size={14} aria-hidden="true" />
-            Postgres
-          </span>
-          <span className="status-pill">
-            <Server size={14} aria-hidden="true" />
-            Node 24
-          </span>
-          <span className="status-pill">QMD</span>
           <span className="status-pill" style={{ gap: 6 }}>
+            <User size={14} aria-hidden="true" />
             {user.name ?? user.email}
           </span>
           <form action={logoutAction}>
@@ -312,6 +329,7 @@ export function QuartoWorkspace({
           isBusy={paneBusy}
           isRendering={isRendering}
           onRender={handleRender}
+          onDownload={handleDownload}
         />
       </div>
       {actionError ? (

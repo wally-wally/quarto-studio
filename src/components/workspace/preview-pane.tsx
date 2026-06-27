@@ -1,4 +1,4 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Download, FileText, RefreshCw } from "lucide-react";
 import type { DocumentRecord } from "@/lib/documents/types";
 
 type PreviewPaneProps = {
@@ -6,13 +6,15 @@ type PreviewPaneProps = {
   isBusy: boolean;
   isRendering: boolean;
   onRender: () => void;
+  onDownload: () => void;
 };
 
 export function PreviewPane({
   document,
   isBusy,
   isRendering,
-  onRender
+  onRender,
+  onDownload
 }: PreviewPaneProps) {
   return (
     <section className="workspace-pane preview-pane" aria-label="렌더 미리보기">
@@ -26,6 +28,18 @@ export function PreviewPane({
           </p>
         </div>
         <div className="preview-actions">
+          {document.latestArtifactId ? (
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={onDownload}
+              disabled={isBusy}
+              aria-label="렌더 결과 HTML 다운로드"
+            >
+              <Download size={16} aria-hidden="true" />
+              다운로드
+            </button>
+          ) : null}
           <button
             className="ghost-button"
             type="button"
@@ -52,6 +66,7 @@ export function PreviewPane({
         />
       ) : (
         <div className="preview-placeholder">
+          <FileText size={40} aria-hidden="true" />
           <p>미리보기 없음. 렌더를 실행하면 미리보기가 표시됩니다.</p>
         </div>
       )}
