@@ -166,6 +166,9 @@ export function QuartoWorkspace({
   }, [pollingJobId, isPolling, getRenderJob, draft.id, stopPolling]);
 
   const isRendering = draft.renderStatus === "rendering" || isPolling;
+  // 렌더는 비동기다: 잡 등록 transition(isPending) → 워커 처리 폴링(isRendering).
+  // 두 구간 모두 편집·문서 이동·재렌더를 잠가, 옛 동기 렌더처럼 "렌더 중엔 다른 동작 불가"를 유지한다.
+  const paneBusy = isPending || isRendering;
 
   const hasDraftChanges =
     draft.title !== workspace.activeDocument.title ||
@@ -288,7 +291,7 @@ export function QuartoWorkspace({
           slug={draft.slug}
           content={draft.content}
           executeCode={draft.executeCode}
-          isBusy={isPending}
+          isBusy={paneBusy}
           onTitleChange={(title) =>
             setDraft((current) => ({ ...current, title }))
           }
@@ -306,7 +309,7 @@ export function QuartoWorkspace({
         />
         <PreviewPane
           document={draft}
-          isBusy={isPending}
+          isBusy={paneBusy}
           isRendering={isRendering}
           onRender={handleRender}
         />

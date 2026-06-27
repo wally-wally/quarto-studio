@@ -479,6 +479,49 @@ input {
   gap: 8px;
 }
 
+.preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rendering-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #0e7490;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rendering-indicator::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #06b6d4;
+  animation: rendering-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rendering-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rendering-indicator::before {
+    animation: none;
+  }
+}
+
 .toggle-button {
   border-color: #cfe0f5;
   background: #eaf3ff;

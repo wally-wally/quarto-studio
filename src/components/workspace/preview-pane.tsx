@@ -25,21 +25,23 @@ export function PreviewPane({
               : "아직 렌더되지 않음"}
           </p>
         </div>
-        <button
-          className="ghost-button"
-          type="button"
-          onClick={onRender}
-          disabled={isBusy}
-          aria-label="미리보기 다시 렌더"
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          다시 렌더
-        </button>
-        {isRendering ? (
-          <span className="rendering-indicator" aria-live="polite">
-            렌더링 중…
-          </span>
-        ) : null}
+        <div className="preview-actions">
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={onRender}
+            disabled={isBusy}
+            aria-label="미리보기 다시 렌더"
+          >
+            <RefreshCw size={16} aria-hidden="true" />
+            다시 렌더
+          </button>
+          {isRendering ? (
+            <span className="rendering-indicator" aria-live="polite">
+              렌더링 중…
+            </span>
+          ) : null}
+        </div>
       </div>
       {document.latestArtifactId ? (
         <iframe
