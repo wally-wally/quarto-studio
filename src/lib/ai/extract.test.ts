@@ -48,6 +48,7 @@ describe("prepareAttachments", () => {
   it("PDF는 openai이면 텍스트 추출 파트가 된다", async () => {
     const parts = await prepareAttachments([{ name: "r.pdf", bytes: new Uint8Array([1]) }], "openai");
     expect(parts[0]).toMatchObject({ kind: "text", name: "r.pdf" });
+    expect((parts[0] as { text: string }).text).toBe("문서에서 추출된 텍스트");
     expect(parseOffice).toHaveBeenCalledOnce();
   });
 

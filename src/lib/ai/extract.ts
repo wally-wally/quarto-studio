@@ -27,7 +27,7 @@ function truncate(text: string): string {
   return text.slice(0, MAX_EXTRACTED_CHARS) + "\n…(이하 생략)";
 }
 
-// officeparser는 Buffer/ArrayBuffer를 받는다. Uint8Array view를 정확한 Buffer로 변환.
+// officeparser는 Buffer/Uint8Array를 받는다. Uint8Array view를 정확한 Buffer로 변환.
 function toBuffer(bytes: Uint8Array): Buffer {
   return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
