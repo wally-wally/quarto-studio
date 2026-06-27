@@ -49,7 +49,16 @@ export async function POST(req: Request): Promise<Response> {
   const files: InputFile[] = await Promise.all(
     fileEntries.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })),
   );
-  const parts = await prepareAttachments(files, provider);
+  let parts: Awaited<ReturnType<typeof prepareAttachments>>;
+  try {
+    parts = await prepareAttachments(files, provider);
+  } catch (error) {
+    console.error("[ai/generate] attachment extraction failed:", error);
+    return Response.json(
+      { error: "첨부파일 텍스트 추출에 실패했습니다. 잠시 후 다시 시도해주세요." },
+      { status: 502 },
+    );
+  }
 
   const content: UserContent = [{ type: "text", text: prompt }];
   for (const part of parts) {
