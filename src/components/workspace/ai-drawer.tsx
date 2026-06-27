@@ -20,7 +20,7 @@ export type AiGenerationHandlers = {
   onRevert: () => void;
 };
 
-type AiDrawerProps = {
+export type AiDrawerProps = {
   open: boolean;
   onToggle: () => void;
   isBusy: boolean;
@@ -99,9 +99,12 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
         signal: controller.signal,
       });
 
-      if (!res.ok || !res.body) {
+      if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? `생성에 실패했습니다 (${res.status})`);
+      }
+      if (!res.body) {
+        throw new Error("응답 스트림을 읽을 수 없습니다.");
       }
 
       const reader = res.body.getReader();
@@ -188,7 +191,7 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
           {files.length > 0 && (
             <ul className="ai-chip-list">
               {files.map((file, index) => (
-                <li className="ai-chip" key={`${file.name}-${index}`}>
+                <li className="ai-chip" key={`${file.name}-${file.size}-${index}`}>
                   <span className="ai-chip-name">{file.name}</span>
                   <span className="ai-chip-size">{formatMB(file.size)}MB</span>
                   <button
