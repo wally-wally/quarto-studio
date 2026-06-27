@@ -45,6 +45,20 @@ describe("buildQuartoProjectFiles", () => {
 
     expect(files.quartoYml).toContain("eval: true");
   });
+
+  it("넓은 코드는 블록 안에서 가로 스크롤되고 복사 버튼은 우측 상단에 고정되도록 CSS를 주입한다", () => {
+    const files = buildQuartoProjectFiles({
+      content: "# Hello",
+      executeCode: false,
+    });
+
+    // pre를 내부 스크롤시키고(overflow-x:auto) 복사 버튼 기준을 비스크롤 div.sourceCode로 둔다
+    expect(files.quartoYml).toContain("include-in-header:");
+    expect(files.quartoYml).toContain("overflow-x: auto !important");
+    expect(files.quartoYml).toContain(
+      "div.sourceCode > pre.sourceCode { position: static",
+    );
+  });
 });
 
 describe("buildQuartoRenderCommand", () => {
