@@ -716,6 +716,9 @@ input {
 }
 
 .seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: 5px;
   font-size: 11px;
@@ -1379,3 +1382,13 @@ input {
 .settings-segment { display: inline-flex; gap: 4px; background: var(--bg-base); border-radius: var(--radius-sm); padding: 3px; }
 .settings-key-row { display: flex; gap: 6px; }
 .settings-note { font-size: 11px; color: var(--fg-subtle); margin: 0; line-height: 1.5; }
+/* 설정 모달은 다크 셸이므로 라이트 auth-input(흰색)을 Deep Navy로 오버라이드(로그인 폼은 그대로) */
+.settings-modal .auth-input {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.settings-modal .auth-input::placeholder { color: var(--fg-subtle); }
+.settings-modal .auth-input:focus { border-color: var(--accent); box-shadow: none; }
+.settings-modal select.auth-input { cursor: pointer; }
+.settings-modal select.auth-input option { background: var(--bg-surface); color: var(--fg); }

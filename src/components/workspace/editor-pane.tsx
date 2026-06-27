@@ -62,8 +62,10 @@ export function EditorPane({
             className="seg-control"
             onClick={onToggleAiDrawer}
           >
-            <Sparkles size={16} aria-hidden="true" />
-            AI 작성
+            <span className={`seg-item ${aiDrawerOpen ? "active" : ""}`}>
+              <Sparkles size={14} aria-hidden="true" />
+              AI 작성
+            </span>
           </button>
           <button
             aria-label="코드 실행"
