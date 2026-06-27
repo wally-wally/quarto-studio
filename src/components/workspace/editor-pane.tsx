@@ -1,5 +1,6 @@
-import { Play } from "lucide-react";
+import { Play, Sparkles } from "lucide-react";
 import CodeEditor from "./code-editor";
+import { AiDrawer, type AiGenerationHandlers } from "./ai-drawer";
 
 type EditorPaneProps = {
   title: string;
@@ -7,6 +8,11 @@ type EditorPaneProps = {
   content: string;
   executeCode: boolean;
   isBusy: boolean;
+  aiDrawerOpen: boolean;
+  generating: boolean;
+  aiHandlers: AiGenerationHandlers;
+  onToggleAiDrawer: () => void;
+  onOpenSettings: () => void;
   onTitleChange: (value: string) => void;
   onSlugChange: (value: string) => void;
   onContentChange: (value: string) => void;
@@ -20,11 +26,16 @@ export function EditorPane({
   content,
   executeCode,
   isBusy,
+  aiDrawerOpen,
+  generating,
+  aiHandlers,
+  onToggleAiDrawer,
+  onOpenSettings,
   onTitleChange,
   onSlugChange,
   onContentChange,
   onExecuteCodeChange,
-  onRender
+  onRender,
 }: EditorPaneProps) {
   return (
     <section className="workspace-pane editor-pane" aria-label="QMD 에디터">
@@ -47,6 +58,16 @@ export function EditorPane({
         </div>
         <div className="pane-actions">
           <button
+            type="button"
+            aria-label="AI 작성 열기"
+            aria-pressed={aiDrawerOpen}
+            className="seg-control"
+            onClick={onToggleAiDrawer}
+          >
+            <Sparkles size={16} aria-hidden="true" />
+            AI 작성
+          </button>
+          <button
             aria-label="코드 실행"
             aria-checked={executeCode}
             className="seg-control"
@@ -58,21 +79,19 @@ export function EditorPane({
             <span className={`seg-item ${executeCode ? "active" : ""}`}>코드 실행</span>
             <span className={`seg-item ${executeCode ? "" : "active"}`}>미실행</span>
           </button>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={onRender}
-            disabled={isBusy}
-          >
+          <button className="primary-button" type="button" onClick={onRender} disabled={isBusy}>
             <Play size={16} aria-hidden="true" />
             렌더
           </button>
         </div>
       </div>
-      <CodeEditor
-        value={content}
-        onChange={onContentChange}
-        readOnly={isBusy}
+      <CodeEditor value={content} onChange={onContentChange} readOnly={isBusy} />
+      <AiDrawer
+        open={aiDrawerOpen}
+        onToggle={onToggleAiDrawer}
+        isBusy={isBusy}
+        onOpenSettings={onOpenSettings}
+        handlers={aiHandlers}
       />
     </section>
   );

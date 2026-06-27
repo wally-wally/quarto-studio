@@ -400,6 +400,20 @@ describe("QuartoWorkspace", () => {
     });
   });
 
+  it("상단바의 AI 설정 버튼을 누르면 설정 모달이 열린다", async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+    await user.click(screen.getByRole("button", { name: "AI 설정" }));
+    expect(await screen.findByRole("dialog", { name: "AI 설정" })).toBeInTheDocument();
+  });
+
+  it("에디터 툴바의 AI 작성 버튼이 드로어를 토글한다", async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+    await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
+    expect(screen.getByLabelText("AI 프롬프트")).toBeInTheDocument();
+  });
+
   it("문서 전환 시 진행 중인 폴링이 정리된다", async () => {
     vi.useFakeTimers();
 
