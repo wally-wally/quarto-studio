@@ -9,6 +9,7 @@ import {
   selectDocumentAction,
 } from "./actions";
 import { createAppDocumentService } from "@/lib/db/app-service";
+import { getCurrentUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import type {
   CreateDocumentInput,
@@ -25,6 +26,12 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/db/app-service", () => ({
   createAppDocumentService: vi.fn(),
 }));
+
+vi.mock("@/lib/auth/session", () => ({
+  getCurrentUser: vi.fn(),
+}));
+
+const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 
 const documentInput: SaveDocumentInput = {
   id: "doc-1",
@@ -87,6 +94,7 @@ describe("document server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedCreateAppDocumentService.mockReturnValue(service);
+    mockedGetCurrentUser.mockResolvedValue({ id: "user-1", email: "test@example.com", name: null });
   });
 
   it("저장 action은 workspace를 반환하고 루트 경로를 revalidate한다", async () => {
@@ -94,7 +102,7 @@ describe("document server actions", () => {
 
     await expect(saveDocumentAction(documentInput)).resolves.toBe(workspace);
 
-    expect(service.saveDocument).toHaveBeenCalledWith(documentInput);
+    expect(service.saveDocument).toHaveBeenCalledWith("user-1", documentInput);
     expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
@@ -103,7 +111,7 @@ describe("document server actions", () => {
 
     await expect(createDocumentAction(createInput)).resolves.toBe(workspace);
 
-    expect(service.createDocument).toHaveBeenCalledWith(createInput);
+    expect(service.createDocument).toHaveBeenCalledWith("user-1", createInput);
     expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
@@ -112,7 +120,7 @@ describe("document server actions", () => {
 
     await expect(renameDocumentAction(renameInput)).resolves.toBe(workspace);
 
-    expect(service.renameDocument).toHaveBeenCalledWith(renameInput);
+    expect(service.renameDocument).toHaveBeenCalledWith("user-1", renameInput);
     expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
@@ -121,7 +129,7 @@ describe("document server actions", () => {
 
     await expect(deleteDocumentAction(deleteInput)).resolves.toBe(workspace);
 
-    expect(service.deleteDocument).toHaveBeenCalledWith(deleteInput);
+    expect(service.deleteDocument).toHaveBeenCalledWith("user-1", deleteInput);
     expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
@@ -130,7 +138,7 @@ describe("document server actions", () => {
 
     await expect(renderDocumentAction(documentInput)).resolves.toBe(workspace);
 
-    expect(service.renderDocument).toHaveBeenCalledWith(documentInput);
+    expect(service.renderDocument).toHaveBeenCalledWith("user-1", documentInput);
     expect(mockedRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
@@ -139,7 +147,7 @@ describe("document server actions", () => {
 
     await expect(selectDocumentAction("doc-1")).resolves.toBe(workspace);
 
-    expect(service.getWorkspace).toHaveBeenCalledWith("doc-1");
+    expect(service.getWorkspace).toHaveBeenCalledWith("user-1", "doc-1");
     expect(mockedRevalidatePath).not.toHaveBeenCalled();
   });
 
@@ -158,5 +166,39 @@ describe("document server actions", () => {
     await expect(getRenderJobAction("job-1")).resolves.toBe(mockJob);
 
     expect(service.getRenderJob).toHaveBeenCalledWith("job-1");
+  });
+});
+
+describe("미인증 요청", () => {
+  beforeEach(() => {
+    mockedGetCurrentUser.mockResolvedValue(null);
+  });
+
+  it("saveDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(saveDocumentAction(documentInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("createDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(createDocumentAction(createInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("renderDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(renderDocumentAction(documentInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("renameDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(renameDocumentAction(renameInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("deleteDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(deleteDocumentAction(deleteInput)).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("selectDocumentAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(selectDocumentAction("doc-1")).rejects.toThrow("인증이 필요합니다");
+  });
+
+  it("getRenderJobAction은 인증이 필요합니다 에러를 던진다", async () => {
+    await expect(getRenderJobAction("job-1")).rejects.toThrow("인증이 필요합니다");
   });
 });

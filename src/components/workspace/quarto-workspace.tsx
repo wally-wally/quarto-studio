@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { AlertCircle, Database, Server } from "lucide-react";
 import { normalizeSlug } from "@/lib/documents/slug";
 import type { RenderJobRecord, SaveDocumentInput } from "@/lib/documents/types";
+import { logoutAction } from "@/lib/auth/actions";
 import { DocumentSidebar } from "./document-sidebar";
 import { EditorPane } from "./editor-pane";
 import { PreviewPane } from "./preview-pane";
@@ -26,6 +27,7 @@ type QuartoWorkspaceProps = {
   renameDocument: RenameDocumentAction;
   deleteDocument: DeleteDocumentAction;
   getRenderJob: (jobId: string) => Promise<RenderJobRecord | null>;
+  user: { id: string; email: string; name: string | null };
 };
 
 export function QuartoWorkspace({
@@ -36,7 +38,8 @@ export function QuartoWorkspace({
   createDocument,
   renameDocument,
   deleteDocument,
-  getRenderJob
+  getRenderJob,
+  user
 }: QuartoWorkspaceProps) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [draft, setDraft] = useState(initialWorkspace.activeDocument);
@@ -260,6 +263,14 @@ export function QuartoWorkspace({
             Node 24
           </span>
           <span className="status-pill">QMD</span>
+          <span className="status-pill" style={{ gap: 6 }}>
+            {user.name ?? user.email}
+          </span>
+          <form action={logoutAction}>
+            <button type="submit" className="ghost-button" style={{ fontSize: 13, height: 28, padding: "0 10px" }}>
+              로그아웃
+            </button>
+          </form>
         </div>
       </header>
       <div className="workspace-grid">
