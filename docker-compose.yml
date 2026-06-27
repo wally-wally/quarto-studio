@@ -1,5 +1,4 @@
-# Phase 1: Postgres + docker-socket-proxy.
-# web / worker 서비스는 Unit 5(풀 와이어링)에서 추가한다.
+# Phase 4-A: 풀 컨테이너 스택 (postgres + socket-proxy + migrate + web + worker)
 name: quarto-studio
 
 services:
@@ -20,13 +19,12 @@ services:
       retries: 10
 
   # 워커가 일회용 렌더 컨테이너를 띄우기 위한 Docker API를 최소 권한으로 노출.
-  # 원시 docker.sock을 워커에 직접 주지 않기 위함(호스트 루트 탈취 방지).
   socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     environment:
-      CONTAINERS: 1   # /containers 조회
-      IMAGES: 1       # 렌더 이미지 확인
-      POST: 1         # 컨테이너 생성/시작 등 쓰기 메서드 허용
+      CONTAINERS: 1
+      IMAGES: 1
+      POST: 1
       EXEC: 0
       NETWORKS: 0
       VOLUMES: 0
@@ -35,5 +33,60 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 
+  # DB 마이그레이션 one-shot: postgres healthy 후 실행하고 종료.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      target: build
+    command: node scripts/migrate.mjs
+    environment:
+      DATABASE_URL: postgres://quarto:quarto@postgres:5432/quarto_studio
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      DATABASE_URL: postgres://quarto:quarto@postgres:5432/quarto_studio
+      ARTIFACT_DIR: /artifacts
+    ports:
+      - "3000:3000"
+    volumes:
+      - artifacts:/artifacts
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: postgres://quarto:quarto@postgres:5432/quarto_studio
+      ARTIFACT_DIR: /artifacts
+      DOCKER_HOST: tcp://socket-proxy:2375
+      QUARTO_RENDER_IMAGE: quarto-render:dev
+      RENDER_WORK_DIR: /work-root
+      RENDER_WORK_VOLUME: quarto-studio_render-work
+    volumes:
+      - artifacts:/artifacts
+      - render-work:/work-root
+    depends_on:
+      postgres:
+        condition: service_healthy
+      socket-proxy:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  artifacts:
+  render-work:

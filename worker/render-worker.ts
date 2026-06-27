@@ -24,6 +24,12 @@ const TIMEOUT_MS = Number(process.env.QUARTO_RENDER_TIMEOUT_MS ?? "60000");
 const POLL_MS = Number(process.env.QUARTO_WORKER_POLL_MS ?? "2000");
 const WORKER_ID = `${os.hostname()}:${process.pid}:${crypto.randomUUID().slice(0, 8)}`;
 
+// 컨테이너 환경에서 sibling-container 렌더를 위한 named volume 공유.
+// RENDER_WORK_DIR: 워커가 잡 파일을 쓰는 경로 (기본: os.tmpdir()).
+// RENDER_WORK_VOLUME: 설정 시 일회용 렌더 컨테이너가 마운트할 named volume 이름.
+const RENDER_WORK_DIR = process.env.RENDER_WORK_DIR ?? os.tmpdir();
+const RENDER_WORK_VOLUME = process.env.RENDER_WORK_VOLUME ?? "";
+
 const sql = postgres(DATABASE_URL, { onnotice: () => {} });
 
 type ClaimedJob = {
@@ -78,15 +84,35 @@ function runDocker(args: string[], timeoutMs: number, containerName: string): Pr
 }
 
 async function processJob(job: ClaimedJob): Promise<void> {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "qs-render-"));
+  // RENDER_WORK_VOLUME 설정 시: 워커 컨테이너와 렌더 컨테이너가 named volume을 공유.
+  // 미설정 시(로컬): os.tmpdir() 하위 임시 경로를 직접 bind-mount.
+  const jobDir = path.join(RENDER_WORK_DIR, `qs-render-${job.id}`);
   const containerName = `qs-render-${job.id}`;
+
+  // 로컬 모드에서는 RENDER_WORK_DIR에 직접 폴더 생성, named volume 모드에서는 이미 마운트됨.
+  await fs.mkdir(jobDir, { recursive: true });
+
   try {
     const files = buildQuartoProjectFiles({
       content: job.content_snapshot,
       executeCode: job.execute_code,
     });
-    await fs.writeFile(path.join(tmp, "index.qmd"), files.indexQmd);
-    await fs.writeFile(path.join(tmp, "_quarto.yml"), files.quartoYml);
+    await fs.writeFile(path.join(jobDir, "index.qmd"), files.indexQmd);
+    await fs.writeFile(path.join(jobDir, "_quarto.yml"), files.quartoYml);
+
+    let mountArgs: string[];
+    let workDir: string;
+
+    if (RENDER_WORK_VOLUME) {
+      // sibling-container 모드: named volume을 워커와 동일 경로로 마운트.
+      // 호스트 도커 데몬이 두 컨테이너 모두에서 같은 volume을 공유.
+      mountArgs = ["-v", `${RENDER_WORK_VOLUME}:${RENDER_WORK_DIR}`];
+      workDir = jobDir; // named volume 내 절대 경로
+    } else {
+      // 로컬 모드: 잡 디렉토리를 /work에 bind-mount.
+      mountArgs = ["-v", `${jobDir}:/work`];
+      workDir = "/work";
+    }
 
     const args = [
       "run", "--rm", "--name", containerName,
@@ -96,8 +122,8 @@ async function processJob(job: ClaimedJob): Promise<void> {
       "--pids-limit", "256",
       "--memory", "1g",
       "--cpus", "1.5",
-      "-v", `${tmp}:/work`,
-      "-w", "/work",
+      ...mountArgs,
+      "-w", workDir,
       RENDER_IMAGE,
       "quarto", "render", "index.qmd", "--to", "html",
     ];
@@ -105,7 +131,7 @@ async function processJob(job: ClaimedJob): Promise<void> {
     const { code, out } = await runDocker(args, TIMEOUT_MS, containerName);
 
     if (code === 0) {
-      const html = await fs.readFile(path.join(tmp, "index.html"), "utf8");
+      const html = await fs.readFile(path.join(jobDir, "index.html"), "utf8");
 
       const artifactId = crypto.randomUUID();
       const key = `${artifactId}.html`;
@@ -163,7 +189,7 @@ async function processJob(job: ClaimedJob): Promise<void> {
     `;
     console.error(`[job ${job.id}] error`, error);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(jobDir, { recursive: true, force: true });
   }
 }
 
