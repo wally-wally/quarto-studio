@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlertCircle, User } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { normalizeSlug } from "@/lib/documents/slug";
 import type { RenderJobRecord, SaveDocumentInput } from "@/lib/documents/types";
 import { logoutAction } from "@/lib/auth/actions";
@@ -288,12 +288,14 @@ export function QuartoWorkspace({
           <span>Quarto Studio</span>
         </div>
         <div className="topbar-status" aria-label="작업 환경">
-          <span className="status-pill" style={{ gap: 6 }}>
-            <User size={14} aria-hidden="true" />
-            {user.name ?? user.email}
-          </span>
+          <div className="topbar-user">
+            <span className="topbar-avatar" aria-hidden="true">
+              {(user.name?.trim() || user.email).charAt(0).toUpperCase()}
+            </span>
+            <span className="topbar-username">{user.name ?? user.email}</span>
+          </div>
           <form action={logoutAction}>
-            <button type="submit" className="ghost-button" style={{ fontSize: 13, height: 28, padding: "0 10px" }}>
+            <button type="submit" className="ghost-button">
               로그아웃
             </button>
           </form>

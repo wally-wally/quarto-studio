@@ -1,4 +1,4 @@
-import { Play, ToggleLeft, ToggleRight } from "lucide-react";
+import { Play } from "lucide-react";
 import CodeEditor from "./code-editor";
 
 type EditorPaneProps = {
@@ -49,18 +49,14 @@ export function EditorPane({
           <button
             aria-label="코드 실행"
             aria-checked={executeCode}
-            className="toggle-button"
+            className="seg-control"
             disabled={isBusy}
             role="switch"
             type="button"
             onClick={() => onExecuteCodeChange(!executeCode)}
           >
-            {executeCode ? (
-              <ToggleRight size={18} aria-hidden="true" />
-            ) : (
-              <ToggleLeft size={18} aria-hidden="true" />
-            )}
-            {executeCode ? "실행" : "중지"}
+            <span className={`seg-item ${executeCode ? "active" : ""}`}>코드 실행</span>
+            <span className={`seg-item ${executeCode ? "" : "active"}`}>미실행</span>
           </button>
           <button
             className="primary-button"
