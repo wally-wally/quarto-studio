@@ -8,13 +8,10 @@ vi.mock("@/lib/ai/provider", () => ({
 }));
 vi.mock("ai", () => ({
   streamText: vi.fn(() => ({
-    textStream: new ReadableStream<string>({
-      start(c) {
-        c.enqueue("---\n");
-        c.enqueue("title: 생성됨\n");
-        c.close();
-      },
-    }),
+    fullStream: (async function* () {
+      yield { type: "text-delta", id: "t1", text: "---\n" };
+      yield { type: "text-delta", id: "t1", text: "title: 생성됨\n" };
+    })(),
   })),
 }));
 
@@ -89,5 +86,29 @@ describe("POST /api/ai/generate", () => {
     const userText = arg.messages[0].content.map((p) => p.text ?? "").join(" ");
     expect(userText).toContain("막대그래프");
     expect(userText).toContain("매출 데이터"); // 텍스트 첨부가 인라인됨
+  });
+
+  it("스트림 중 error 파트가 오면 응답 스트림이 에러로 종료된다(부분 텍스트 후 reject)", async () => {
+    mockStreamText.mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: "text-delta", id: "t1", text: "부분" };
+        yield { type: "error", error: new Error("provider 401") };
+      })(),
+    } as unknown as ReturnType<typeof streamText>);
+    const res = await POST(makeRequest({ key: "sk", fields: validFields }));
+    expect(res.status).toBe(200);
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let text = "";
+    await expect(
+      (async () => {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          text += dec.decode(value);
+        }
+      })(),
+    ).rejects.toThrow();
+    expect(text).toContain("부분");
   });
 });

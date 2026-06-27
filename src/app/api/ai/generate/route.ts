@@ -75,7 +75,32 @@ export async function POST(req: Request): Promise<Response> {
     },
   });
 
-  return new Response(result.textStream.pipeThrough(new TextEncoderStream()), {
+  // v7의 result.textStream은 error 청크를 삼켜(프로바이더 오류가 200+부분텍스트로 끝남)
+  // 클라이언트가 onFinish로 처리해 버린다. fullStream을 직접 소비해 text만 내보내고,
+  // error 파트에서 스트림을 error로 종료 → 클라이언트 reader.read()가 reject되어
+  // onError(자동 되돌리기)가 발동하도록 한다.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const part of result.fullStream) {
+          if (part.type === "text-delta") {
+            controller.enqueue(encoder.encode(part.text));
+          } else if (part.type === "error") {
+            controller.error(
+              part.error instanceof Error ? part.error : new Error("AI 생성 중 오류가 발생했습니다."),
+            );
+            return;
+          }
+        }
+        controller.close();
+      } catch (error) {
+        controller.error(error instanceof Error ? error : new Error("AI 생성 중 오류가 발생했습니다."));
+      }
+    },
+  });
+
+  return new Response(stream, {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 }

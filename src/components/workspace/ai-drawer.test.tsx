@@ -58,4 +58,21 @@ describe("AiDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "되돌리기" }));
     expect(handlers.onRevert).toHaveBeenCalled();
   });
+
+  it("스트림 오류 시 onError를 호출한다(onFinish 아님)", async () => {
+    saveSettings({ ...DEFAULT_SETTINGS, anthropic: { apiKey: "sk-test", model: "claude-sonnet-4-6" } });
+    const handlers = makeHandlers();
+    const errorStream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode("부분"));
+        c.error(new Error("boom"));
+      },
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(errorStream, { status: 200 }));
+    render(<AiDrawer open onToggle={vi.fn()} isBusy={false} onOpenSettings={vi.fn()} handlers={handlers} />);
+    fireEvent.change(screen.getByLabelText("AI 프롬프트"), { target: { value: "문서" } });
+    fireEvent.click(screen.getByRole("button", { name: "생성" }));
+    await waitFor(() => expect(handlers.onError).toHaveBeenCalled());
+    expect(handlers.onFinish).not.toHaveBeenCalled();
+  });
 });
