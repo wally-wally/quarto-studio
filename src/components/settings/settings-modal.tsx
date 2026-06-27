@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import {
   loadSettings,
@@ -11,29 +11,25 @@ import {
 } from "@/lib/ai/settings";
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [settings, setSettings] = useState<AiSettings | null>(null);
+  if (!open) return null;
+  return <SettingsModalContent onClose={onClose} />;
+}
+
+function SettingsModalContent({ onClose }: { onClose: () => void }) {
+  const [settings, setSettings] = useState<AiSettings>(() => loadSettings());
   const [showKey, setShowKey] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setSettings(loadSettings());
-      setShowKey(false);
-    }
-  }, [open]);
-
-  if (!open || !settings) return null;
 
   const provider = settings.provider;
   const config = settings[provider];
 
   function setProvider(next: AiProvider) {
-    setSettings((s) => (s ? { ...s, provider: next } : s));
+    setSettings((s) => ({ ...s, provider: next }));
   }
   function setConfig(patch: Partial<{ apiKey: string; model: string }>) {
-    setSettings((s) => (s ? { ...s, [provider]: { ...s[provider], ...patch } } : s));
+    setSettings((s) => ({ ...s, [provider]: { ...s[provider], ...patch } }));
   }
   function handleSave() {
-    if (settings) saveSettings(settings);
+    saveSettings(settings);
     onClose();
   }
 
