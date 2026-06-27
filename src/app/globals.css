@@ -733,7 +733,8 @@ input {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: #ffffff;
+  /* Night Owl 배경 — 테마 로드 전 흰 깜빡임 방지 (색상·거터·캐럿은 nightOwl 테마가 제어) */
+  background: #011627;
 }
 
 .qmd-codemirror .cm-editor {
@@ -745,19 +746,9 @@ input {
 }
 
 .qmd-codemirror .cm-scroller {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.65;
-}
-
-.qmd-codemirror .cm-gutters {
-  background: #f5f8fb;
-  border-right: 1px solid #e6eef7;
-  color: #94a3b8;
-}
-
-.qmd-codemirror .cm-content {
-  caret-color: #0f172a;
 }
 
 .preview-frame {
