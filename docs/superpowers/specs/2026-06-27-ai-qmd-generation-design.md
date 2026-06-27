@@ -30,6 +30,7 @@
 - **프롬프트 한도**: 20,000자. **첨부 한도**: 최대 10개, 합계 5MB.
 - **PDF 처리**: 프로바이더 조건부 — Anthropic이면 네이티브 문서 입력, OpenAI면 서버 텍스트 추출.
 - **지원 범위 강제**: 시스템 프롬프트(소프트 제약).
+- **추론 effort**: `medium` 고정. 사용자 설정에 노출하지 않고 서버에서 고정하며, `streamText`의 `providerOptions`로 주입한다.
 
 ## 아키텍처와 데이터 흐름
 
@@ -112,7 +113,7 @@ type AiSettings = {
   4. 첨부를 범주별로 처리(이미지→비전 파트, 텍스트→인라인, 바이너리→추출, PDF→프로바이더 조건부).
   5. 프로바이더 모델 생성: `provider === "anthropic" ? createAnthropic({ apiKey })(model) : createOpenAI({ apiKey })(model)`.
   6. 메시지 구성: 시스템 프롬프트 + user 메시지(`content` parts = 프롬프트 텍스트 + 첨부 파트들).
-  7. `const result = streamText({ model, system, messages, abortSignal: req.signal })`.
+  7. `const result = streamText({ model, system, messages, abortSignal: req.signal, providerOptions })` — 추론 effort는 `medium` 고정으로 `providerOptions`에 주입한다. 프로바이더별 표현(OpenAI `reasoningEffort: "medium"` / Anthropic thinking budget 매핑)은 구현 계획에서 확정한다.
   8. `return result.toTextStreamResponse()` — 평문 UTF-8 텍스트 델타 스트림.
 - **에러 처리**: 프리플라이트(인증·키·검증)는 JSON 본문 + 적절한 상태코드로 즉시 반환한다. 프로바이더 인증/쿼터 오류와 스트림 중 오류는 `streamText`의 `onError`로 서버 로깅하고, 클라이언트는 "생성 중 오류"를 표시한 뒤 자동으로 이전 내용으로 되돌린다.
 
