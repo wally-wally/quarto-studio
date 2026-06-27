@@ -38,8 +38,8 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="AI 설정" onClick={onClose}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="settings-modal" role="dialog" aria-modal="true" aria-label="AI 설정" onClick={(e) => e.stopPropagation()}>
         <div className="settings-header">
           <h2>AI 설정</h2>
           <button type="button" aria-label="닫기" className="ai-chip-remove" onClick={onClose}>
@@ -73,7 +73,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
               placeholder={provider === "anthropic" ? "sk-ant-..." : "sk-..."}
               onChange={(e) => setConfig({ apiKey: e.target.value })}
             />
-            <button type="button" className="ghost-button" onClick={() => setShowKey((v) => !v)}>
+            <button type="button" className="ghost-button" aria-label="API 키 표시 전환" onClick={() => setShowKey((v) => !v)}>
               {showKey ? "숨기기" : "표시"}
             </button>
           </div>
