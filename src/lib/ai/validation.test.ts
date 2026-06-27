@@ -6,6 +6,7 @@ import {
   validateAttachments,
   MAX_PROMPT_LENGTH,
   MAX_ATTACHMENTS,
+  MAX_TOTAL_BYTES,
 } from "./validation";
 
 describe("getExtension / isAllowedExtension", () => {
@@ -34,11 +35,15 @@ describe("validateAttachments", () => {
     const files = Array.from({ length: MAX_ATTACHMENTS + 1 }, (_, i) => ({ name: `f${i}.txt`, size: 1 }));
     expect(validateAttachments(files).ok).toBe(false);
   });
+  it("정확히 10개는 통과한다", () => {
+    const files = Array.from({ length: MAX_ATTACHMENTS }, (_, i) => ({ name: `f${i}.txt`, size: 1 }));
+    expect(validateAttachments(files).ok).toBe(true);
+  });
   it("허용 외 확장자를 거부한다", () => {
     expect(validateAttachments([{ name: "a.exe", size: 1 }]).ok).toBe(false);
   });
   it("총 5MB 초과를 거부한다", () => {
-    expect(validateAttachments([{ name: "a.csv", size: 5 * 1024 * 1024 + 1 }]).ok).toBe(false);
+    expect(validateAttachments([{ name: "a.csv", size: MAX_TOTAL_BYTES + 1 }]).ok).toBe(false);
   });
   it("정상 입력을 통과시킨다", () => {
     expect(validateAttachments([{ name: "a.csv", size: 10 }, { name: "b.png", size: 20 }]).ok).toBe(true);

@@ -21,6 +21,8 @@ export function isAllowedExtension(name: string): boolean {
 }
 
 export function validatePrompt(prompt: string): ValidationResult {
+  // 빈 입력은 trim 후 판별(공백만 거부), 최대 길이는 raw length로 제한
+  // (페이로드 크기 상한 목적 + 드로어 textarea maxLength와 일치)
   if (prompt.trim().length === 0) {
     return { ok: false, error: "프롬프트를 입력해주세요." };
   }
