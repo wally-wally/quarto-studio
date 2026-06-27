@@ -9,7 +9,7 @@ const baseDocument: DocumentRecord = {
   content: "# Quarterly Report\n\n```{r}\n1 + 1\n```",
   executeCode: false,
   renderStatus: "idle",
-  renderedHtml: null,
+  latestArtifactId: null,
   renderError: null,
   createdAt: "2026-06-24T00:00:00.000Z",
   updatedAt: "2026-06-24T00:00:00.000Z",

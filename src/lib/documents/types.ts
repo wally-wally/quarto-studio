@@ -7,7 +7,7 @@ export type DocumentRecord = {
   content: string;
   executeCode: boolean;
   renderStatus: RenderStatus;
-  renderedHtml: string | null;
+  latestArtifactId: string | null;
   renderError: string | null;
   createdAt: string;
   updatedAt: string;
@@ -53,7 +53,7 @@ export type RenderJobRecord = {
   documentId: string;
   status: "queued" | "running" | "succeeded" | "failed" | "timed_out";
   log: string | null;
-  renderedHtml: string | null;
+  artifactId: string | null;
   createdAt: string;
   finishedAt: string | null;
 };

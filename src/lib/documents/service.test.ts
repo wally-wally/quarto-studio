@@ -32,7 +32,7 @@ function createDocument(overrides: Partial<DocumentRecord> = {}): DocumentRecord
     content: "# Getting Started",
     executeCode: false,
     renderStatus: "idle",
-    renderedHtml: null,
+    latestArtifactId: null,
     renderError: null,
     createdAt: baseTimestamp,
     updatedAt: baseTimestamp,
@@ -289,7 +289,7 @@ describe("document service", () => {
       documentId: "doc-1",
       status: "queued",
       log: null,
-      renderedHtml: null,
+      artifactId: null,
       createdAt: baseTimestamp,
       finishedAt: null,
     };

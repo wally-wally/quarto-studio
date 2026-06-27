@@ -18,7 +18,7 @@ type DocumentRow = {
   created_at: Date;
   updated_at: Date;
   job_status: string | null;
-  job_html: string | null;
+  latest_artifact_id: string | null;
   job_log: string | null;
   job_finished_at: Date | null;
 };
@@ -28,7 +28,7 @@ type RenderJobRow = {
   document_id: string;
   status: RenderJobRecord["status"];
   log: string | null;
-  rendered_html: string | null;
+  artifact_id: string | null;
   created_at: Date;
   finished_at: Date | null;
 };
@@ -73,24 +73,28 @@ format:
 `;
 }
 
-function deriveRenderStatus(row: DocumentRow): Pick<DocumentRecord, "renderStatus" | "renderedHtml" | "renderError" | "renderedAt"> {
+function deriveRenderStatus(row: DocumentRow): Pick<DocumentRecord, "renderStatus" | "latestArtifactId" | "renderError" | "renderedAt"> {
   const status = row.job_status;
+  // latestArtifactId comes directly from documents.latest_artifact_id
+  // regardless of current job status — preserved across re-renders
+  const latestArtifactId = row.latest_artifact_id;
+
   if (!status) {
-    return { renderStatus: "idle", renderedHtml: null, renderError: null, renderedAt: null };
+    return { renderStatus: "idle", latestArtifactId, renderError: null, renderedAt: null };
   }
   if (status === "queued" || status === "running") {
-    return { renderStatus: "rendering", renderedHtml: row.job_html, renderError: null, renderedAt: row.job_finished_at?.toISOString() ?? null };
+    return { renderStatus: "rendering", latestArtifactId, renderError: null, renderedAt: row.job_finished_at?.toISOString() ?? null };
   }
   if (status === "succeeded") {
     return {
       renderStatus: "success",
-      renderedHtml: row.job_html,
+      latestArtifactId,
       renderError: null,
       renderedAt: row.job_finished_at ? row.job_finished_at.toISOString() : null
     };
   }
   // failed | timed_out
-  return { renderStatus: "error", renderedHtml: null, renderError: row.job_log, renderedAt: null };
+  return { renderStatus: "error", latestArtifactId, renderError: row.job_log, renderedAt: null };
 }
 
 function toDocument(row: DocumentRow): DocumentRecord {
@@ -123,23 +127,17 @@ export function createDocumentRepository(sql: Sql) {
   const getDocumentById = async (id: string): Promise<DocumentRecord | null> => {
     const rows = await sql<DocumentRow[]>`
       SELECT d.*,
-             j.status as job_status, js.rendered_html as job_html,
-             j.log as job_log, js.finished_at as job_finished_at
+             j.status as job_status,
+             j.log as job_log, j.finished_at as job_finished_at,
+             d.latest_artifact_id
       FROM documents d
       LEFT JOIN LATERAL (
-        SELECT status, log
+        SELECT status, log, finished_at
         FROM render_jobs
         WHERE document_id = d.id
         ORDER BY created_at DESC
         LIMIT 1
       ) j ON true
-      LEFT JOIN LATERAL (
-        SELECT rendered_html, finished_at
-        FROM render_jobs
-        WHERE document_id = d.id AND status = 'succeeded'
-        ORDER BY created_at DESC
-        LIMIT 1
-      ) js ON true
       WHERE d.id = ${id}
     `;
     const row = rows[0];
@@ -165,23 +163,17 @@ export function createDocumentRepository(sql: Sql) {
     async listDocuments(): Promise<DocumentSummary[]> {
       const rows = await sql<DocumentRow[]>`
         SELECT d.*,
-               j.status as job_status, js.rendered_html as job_html,
-               j.log as job_log, js.finished_at as job_finished_at
+               j.status as job_status,
+               j.log as job_log, j.finished_at as job_finished_at,
+               d.latest_artifact_id
         FROM documents d
         LEFT JOIN LATERAL (
-          SELECT status, log
+          SELECT status, log, finished_at
           FROM render_jobs
           WHERE document_id = d.id
           ORDER BY created_at DESC
           LIMIT 1
         ) j ON true
-        LEFT JOIN LATERAL (
-          SELECT rendered_html, finished_at
-          FROM render_jobs
-          WHERE document_id = d.id AND status = 'succeeded'
-          ORDER BY created_at DESC
-          LIMIT 1
-        ) js ON true
         ORDER BY d.updated_at DESC
       `;
       return rows.map(toDocument).map(toSummary);
@@ -194,23 +186,17 @@ export function createDocumentRepository(sql: Sql) {
     async getOrCreateSeedDocument(): Promise<DocumentRecord> {
       const existing = await sql<DocumentRow[]>`
         SELECT d.*,
-               j.status as job_status, js.rendered_html as job_html,
-               j.log as job_log, js.finished_at as job_finished_at
+               j.status as job_status,
+               j.log as job_log, j.finished_at as job_finished_at,
+               d.latest_artifact_id
         FROM documents d
         LEFT JOIN LATERAL (
-          SELECT status, log
+          SELECT status, log, finished_at
           FROM render_jobs
           WHERE document_id = d.id
           ORDER BY created_at DESC
           LIMIT 1
         ) j ON true
-        LEFT JOIN LATERAL (
-          SELECT rendered_html, finished_at
-          FROM render_jobs
-          WHERE document_id = d.id AND status = 'succeeded'
-          ORDER BY created_at DESC
-          LIMIT 1
-        ) js ON true
         ORDER BY d.created_at ASC
         LIMIT 1
       `;
@@ -312,7 +298,7 @@ export function createDocumentRepository(sql: Sql) {
 
     async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
       const rows = await sql<RenderJobRow[]>`
-        SELECT id, document_id, status, log, rendered_html, created_at, finished_at
+        SELECT id, document_id, status, log, artifact_id, created_at, finished_at
         FROM render_jobs
         WHERE id = ${jobId}
       `;
@@ -323,7 +309,7 @@ export function createDocumentRepository(sql: Sql) {
         documentId: row.document_id,
         status: row.status,
         log: row.log,
-        renderedHtml: row.rendered_html,
+        artifactId: row.artifact_id,
         createdAt: row.created_at.toISOString(),
         finishedAt: row.finished_at ? row.finished_at.toISOString() : null
       };
