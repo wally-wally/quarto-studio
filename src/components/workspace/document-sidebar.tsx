@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, FilePlus, Pencil, Search, Trash2, X } from "lucide-react";
+import { Check, FilePlus, FileText, Pencil, Search, Trash2, X } from "lucide-react";
 import type { DocumentSummary } from "@/lib/documents/types";
 
 type DocumentSidebarProps = {
@@ -87,27 +87,32 @@ export function DocumentSidebar({
 
   return (
     <aside className="document-sidebar" aria-label="문서 목록">
-      <div className="sidebar-header">
-        <span>문서함</span>
+      <div className="lnb-top">
         <button
-          className="icon-button"
+          className="lnb-new-button"
           type="button"
           aria-label="새 문서 만들기"
           title="새 문서 만들기"
           disabled={isBusy}
           onClick={openCreateDialog}
         >
-          <FilePlus size={16} aria-hidden="true" />
+          <FilePlus size={14} aria-hidden="true" />
+          새 문서
         </button>
       </div>
-      <label className="search-field">
-        <Search size={15} aria-hidden="true" />
-        <input
-          aria-label="문서 검색 준비 중"
-          placeholder="문서 검색"
-          readOnly
-        />
-      </label>
+      <div className="lnb-search">
+        <label className="search-field">
+          <Search size={14} aria-hidden="true" />
+          <input
+            aria-label="문서 검색 준비 중"
+            placeholder="문서 검색..."
+            readOnly
+          />
+        </label>
+      </div>
+      <div className="sidebar-header">
+        <span>문서함</span>
+      </div>
       <div className="document-list">
         {documents.map((document) => {
           const isActive = document.id === activeDocumentId;
@@ -118,6 +123,9 @@ export function DocumentSidebar({
               className={`document-item ${isActive ? "active" : ""}`}
               key={document.id}
             >
+              <span className="document-doc-icon" aria-hidden="true">
+                <FileText size={14} />
+              </span>
               {isEditing ? (
                 <form
                   className="document-edit-form"

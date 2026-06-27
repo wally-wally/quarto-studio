@@ -7,6 +7,7 @@ import { languages } from "@codemirror/language-data";
 import { indentUnit, LanguageDescription } from "@codemirror/language";
 import { EditorView, keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
+import { nightOwl } from "./night-owl-theme";
 
 type CodeEditorProps = {
   value: string;
@@ -43,6 +44,7 @@ export default function CodeEditor({
       onChange={onChange}
       readOnly={readOnly}
       height="100%"
+      theme={nightOwl}
       extensions={extensions}
       basicSetup={{
         lineNumbers: true,
