@@ -94,6 +94,9 @@ describe("GET /preview/[id]", () => {
     // style-src/script-src에 data: 가 있어야 테마·하이라이트가 적용된다(회귀 방지).
     expect(csp).toMatch(/style-src[^;]*\bdata:/);
     expect(csp).toMatch(/script-src[^;]*\bdata:/);
+    // Pretendard 본문 폰트는 jsdelivr CDN을 쓰므로 style-src/font-src에 허용돼야 한다(회귀 방지).
+    expect(csp).toMatch(/style-src[^;]*cdn\.jsdelivr\.net/);
+    expect(csp).toMatch(/font-src[^;]*cdn\.jsdelivr\.net/);
   });
 
   it("X-Content-Type-Options nosniff header on 200 response", async () => {

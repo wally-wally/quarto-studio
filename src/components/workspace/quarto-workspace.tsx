@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Settings } from "lucide-react";
+import { SettingsModal } from "@/components/settings/settings-modal";
+import { useAiGeneration } from "./use-ai-generation";
 import { normalizeSlug } from "@/lib/documents/slug";
 import type { RenderJobRecord, SaveDocumentInput } from "@/lib/documents/types";
 import { logoutAction } from "@/lib/auth/actions";
@@ -44,6 +46,12 @@ export function QuartoWorkspace({
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [draft, setDraft] = useState(initialWorkspace.activeDocument);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const setDraftContent = useCallback((content: string) => {
+    setDraft((current) => ({ ...current, content }));
+  }, []);
+  const { generating, handlers: aiHandlers } = useAiGeneration(() => draft.content, setDraftContent);
   const [isPending, startTransition] = useTransition();
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -182,7 +190,7 @@ export function QuartoWorkspace({
   const isRendering = draft.renderStatus === "rendering" || isPolling;
   // 렌더는 비동기다: 잡 등록 transition(isPending) → 워커 처리 폴링(isRendering).
   // 두 구간 모두 편집·문서 이동·재렌더를 잠가, 옛 동기 렌더처럼 "렌더 중엔 다른 동작 불가"를 유지한다.
-  const paneBusy = isPending || isRendering;
+  const paneBusy = isPending || isRendering || generating;
 
   const hasDraftChanges =
     draft.title !== workspace.activeDocument.title ||
@@ -294,6 +302,14 @@ export function QuartoWorkspace({
             </span>
             <span className="topbar-username">{user.name ?? user.email}</span>
           </div>
+          <button
+            type="button"
+            aria-label="AI 설정"
+            className="ghost-button"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={16} aria-hidden="true" />
+          </button>
           <form action={logoutAction}>
             <button type="submit" className="ghost-button">
               로그아웃
@@ -317,6 +333,10 @@ export function QuartoWorkspace({
           content={draft.content}
           executeCode={draft.executeCode}
           isBusy={paneBusy}
+          aiDrawerOpen={aiDrawerOpen}
+          aiHandlers={aiHandlers}
+          onToggleAiDrawer={() => setAiDrawerOpen((v) => !v)}
+          onOpenSettings={() => setSettingsOpen(true)}
           onTitleChange={(title) =>
             setDraft((current) => ({ ...current, title }))
           }
@@ -345,6 +365,7 @@ export function QuartoWorkspace({
           <span>작업을 완료하지 못했습니다: {actionError}</span>
         </div>
       ) : null}
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </main>
   );
 }

@@ -59,6 +59,17 @@ describe("buildQuartoProjectFiles", () => {
       "div.sourceCode > pre.sourceCode { position: static",
     );
   });
+
+  it("본문 폰트를 Pretendard CDN으로 주입한다(미리보기·다운로드 공통 산출물)", () => {
+    const files = buildQuartoProjectFiles({ content: "# Hello", executeCode: false });
+
+    expect(files.quartoYml).toContain(
+      "cdn.jsdelivr.net/gh/orioncactus/pretendard",
+    );
+    expect(files.quartoYml).toContain(
+      '--bs-body-font-family: "Pretendard Variable"',
+    );
+  });
 });
 
 describe("buildQuartoRenderCommand", () => {

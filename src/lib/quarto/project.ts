@@ -53,6 +53,13 @@ export function buildQuartoProjectFiles(input: QuartoProjectInput) {
       "        div.sourceCode { position: relative; }",
       "        div.sourceCode > pre.sourceCode { position: static; overflow-x: auto !important; }",
       "        </style>",
+      // 본문 폰트를 Pretendard(가변)로. 미리보기(iframe)와 다운로드 HTML 모두 동일 산출물이라
+      // CDN <link> 하나로 둘 다 적용된다. 코드(monospace)는 건드리지 않는다.
+      '        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@latest/dist/web/variable/pretendardvariable-dynamic-subset.min.css">',
+      "        <style>",
+      '        :root { --bs-body-font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }',
+      "        body, h1, h2, h3, h4, h5, h6 { font-family: var(--bs-body-font-family); }",
+      "        </style>",
       ...executeConfig,
       "",
     ].join("\n"),

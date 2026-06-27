@@ -716,6 +716,9 @@ input {
 }
 
 .seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: 5px;
   font-size: 11px;
@@ -767,13 +770,13 @@ input {
   justify-content: center;
   gap: 14px;
   padding: 40px;
-  background: var(--preview-bg);
-  color: #9ca3af;
+  background: var(--bg-base);
+  color: var(--fg-muted);
   text-align: center;
 }
 
 .preview-placeholder svg {
-  color: #d1d5db;
+  color: var(--fg-subtle);
 }
 
 .preview-placeholder p {
@@ -781,7 +784,7 @@ input {
   max-width: 280px;
   font-size: 13px;
   line-height: 1.5;
-  color: #9ca3af;
+  color: var(--fg-muted);
 }
 
 .render-error {
@@ -1291,3 +1294,125 @@ input {
     background: #fff;
   }
 }
+
+/* ── AI 드로어 ── */
+.ai-drawer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+}
+.ai-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ai-drawer-toggle:hover { color: var(--fg); }
+.ai-drawer-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ai-field { display: flex; flex-direction: column; gap: 4px; position: relative; }
+.ai-field-label { font-size: 12px; color: var(--fg-subtle); }
+.ai-prompt {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+}
+.ai-counter { align-self: flex-end; font-size: 11px; color: var(--fg-subtle); }
+.ai-attachments { display: flex; align-items: center; gap: 10px; }
+.ai-attach-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.ai-attach-meta { font-size: 11px; color: var(--fg-subtle); }
+.ai-chip-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.ai-chip-size { color: var(--fg-subtle); font-size: 11px; }
+.ai-chip-remove { background: none; border: none; color: var(--fg-subtle); cursor: pointer; display: inline-flex; }
+.ai-error { font-size: 12px; color: var(--danger); margin: 0; }
+.ai-actions { display: flex; gap: 8px; }
+.ai-link { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
+
+/* ── 설정 모달 ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.settings-modal {
+  width: min(440px, 92vw);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-header { display: flex; align-items: center; justify-content: space-between; }
+.settings-header h2 { margin: 0; font-size: 16px; color: var(--fg); }
+.settings-segment {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+.settings-tab {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-tab:hover:not(.active) { color: var(--fg); }
+.settings-tab.active { background: var(--accent); color: #fff; }
+.settings-key-row { display: flex; gap: 6px; }
+.settings-note { font-size: 11px; color: var(--fg-subtle); margin: 0; line-height: 1.5; }
+/* 푸터(저장/취소) 가운데 정렬 — 드로어의 .ai-actions는 영향받지 않음 */
+.settings-modal .ai-actions { justify-content: center; }
+/* 설정 모달은 다크 셸이므로 라이트 auth-input(흰색)을 Deep Navy로 오버라이드(로그인 폼은 그대로) */
+.settings-modal .auth-input {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.settings-modal .auth-input::placeholder { color: var(--fg-subtle); }
+.settings-modal .auth-input:focus { border-color: var(--accent); box-shadow: none; }
+.settings-modal select.auth-input { cursor: pointer; }
+.settings-modal select.auth-input option { background: var(--bg-surface); color: var(--fg); }

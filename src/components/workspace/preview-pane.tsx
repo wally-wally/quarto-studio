@@ -9,6 +9,18 @@ type PreviewPaneProps = {
   onDownload: () => void;
 };
 
+// 렌더 시각(UTC ISO)을 'YYYY-MM-DD HH:mm:ss'로 표기한다. getUTC*를 써서
+// 서버/클라이언트 출력이 동일하므로(하이드레이션 불일치 없음) 저장된 UTC 값을 그대로 보여준다.
+export function formatRenderedAt(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ` +
+    `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
+  );
+}
+
 export function PreviewPane({
   document,
   isBusy,
@@ -23,7 +35,7 @@ export function PreviewPane({
           <h2>미리보기</h2>
           <p>
             {document.renderedAt
-              ? `마지막 렌더 ${document.renderedAt}`
+              ? `마지막 렌더 ${formatRenderedAt(document.renderedAt)}`
               : "아직 렌더되지 않음"}
           </p>
         </div>
@@ -67,7 +79,7 @@ export function PreviewPane({
       ) : (
         <div className="preview-placeholder">
           <FileText size={40} aria-hidden="true" />
-          <p>미리보기 없음. 렌더를 실행하면 미리보기가 표시됩니다.</p>
+          <p>렌더를 실행하면 미리보기가 표시됩니다.</p>
         </div>
       )}
       {document.renderError ? (
