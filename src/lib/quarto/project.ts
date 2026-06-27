@@ -44,6 +44,11 @@ export function buildQuartoProjectFiles(input: QuartoProjectInput) {
       //     고정해, 가로 스크롤 중에도 블록 우측 상단에 계속 머무르게 한다.
       "    include-in-header:",
       "      text: |",
+      "        <script>",
+      "        // 미리보기는 보안상 sandbox(allow-same-origin 없음)라 localStorage 접근이 막힌다.",
+      "        // Quarto 번들 JS가 localStorage를 읽다 SecurityError를 던지므로, 무해한 no-op으로 가린다.",
+      "        (function(){try{var s={getItem:function(){return null},setItem:function(){},removeItem:function(){},clear:function(){},key:function(){return null},length:0};Object.defineProperty(window,'localStorage',{value:s,configurable:true});Object.defineProperty(window,'sessionStorage',{value:s,configurable:true});}catch(e){}})();",
+      "        </script>",
       "        <style>",
       "        div.sourceCode { position: relative; }",
       "        div.sourceCode > pre.sourceCode { position: static; overflow-x: auto !important; }",
