@@ -13,15 +13,18 @@ export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: stri
     { label: "Claude Haiku 4.5 (빠름)", value: "claude-haiku-4-5" },
   ],
   openai: [
-    { label: "GPT-5.2", value: "gpt-5.2" },
-    { label: "GPT-5", value: "gpt-5" },
+    { label: "GPT-5.5 Pro", value: "gpt-5.5-pro" },
+    { label: "GPT-5.5", value: "gpt-5.5" },
+    { label: "GPT-5.4 Pro", value: "gpt-5.4-pro" },
+    { label: "GPT-5.4", value: "gpt-5.4" },
+    { label: "GPT-5.4 mini", value: "gpt-5.4-mini" },
   ],
 };
 
 export const DEFAULT_SETTINGS: AiSettings = {
   provider: "anthropic",
   anthropic: { apiKey: "", model: "claude-sonnet-4-6" },
-  openai: { apiKey: "", model: "gpt-5.2" },
+  openai: { apiKey: "", model: "gpt-5.5" },
 };
 
 const STORAGE_KEY = "quarto-studio:ai-settings";

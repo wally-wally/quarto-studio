@@ -1379,9 +1379,33 @@ input {
 }
 .settings-header { display: flex; align-items: center; justify-content: space-between; }
 .settings-header h2 { margin: 0; font-size: 16px; color: var(--fg); }
-.settings-segment { display: inline-flex; gap: 4px; background: var(--bg-base); border-radius: var(--radius-sm); padding: 3px; }
+.settings-segment {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+.settings-tab {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-tab:hover:not(.active) { color: var(--fg); }
+.settings-tab.active { background: var(--accent); color: #fff; }
 .settings-key-row { display: flex; gap: 6px; }
 .settings-note { font-size: 11px; color: var(--fg-subtle); margin: 0; line-height: 1.5; }
+/* 푸터(저장/취소) 가운데 정렬 — 드로어의 .ai-actions는 영향받지 않음 */
+.settings-modal .ai-actions { justify-content: center; }
 /* 설정 모달은 다크 셸이므로 라이트 auth-input(흰색)을 Deep Navy로 오버라이드(로그인 폼은 그대로) */
 .settings-modal .auth-input {
   background: var(--bg-base);

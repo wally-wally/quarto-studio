@@ -23,4 +23,18 @@ describe("SettingsModal", () => {
     const { container } = render(<SettingsModal open={false} onClose={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("Esc 키로 모달이 닫힌다", () => {
+    const onClose = vi.fn();
+    render(<SettingsModal open onClose={onClose} />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("모델 select로 모델을 바꿔 저장하면 반영된다", () => {
+    render(<SettingsModal open onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("모델"), { target: { value: "claude-opus-4-8" } });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    expect(loadSettings().anthropic.model).toBe("claude-opus-4-8");
+  });
 });

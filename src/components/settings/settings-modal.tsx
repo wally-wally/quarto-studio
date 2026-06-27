@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   loadSettings,
   saveSettings,
@@ -19,6 +18,15 @@ function SettingsModalContent({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<AiSettings>(() => loadSettings());
   const [showKey, setShowKey] = useState(false);
 
+  // Esc로 모달 닫기
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const provider = settings.provider;
   const config = settings[provider];
 
@@ -35,12 +43,15 @@ function SettingsModalContent({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="settings-modal" role="dialog" aria-modal="true" aria-label="AI 설정" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="settings-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI 설정"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="settings-header">
           <h2>AI 설정</h2>
-          <button type="button" aria-label="닫기" className="ai-chip-remove" onClick={onClose}>
-            <X size={16} aria-hidden="true" />
-          </button>
         </div>
 
         <div className="settings-segment" role="tablist" aria-label="프로바이더">
@@ -50,7 +61,7 @@ function SettingsModalContent({ onClose }: { onClose: () => void }) {
               type="button"
               role="tab"
               aria-selected={provider === p}
-              className={`seg-item ${provider === p ? "active" : ""}`}
+              className={`settings-tab ${provider === p ? "active" : ""}`}
               onClick={() => setProvider(p)}
             >
               {p === "anthropic" ? "Anthropic" : "OpenAI"}
@@ -69,7 +80,12 @@ function SettingsModalContent({ onClose }: { onClose: () => void }) {
               placeholder={provider === "anthropic" ? "sk-ant-..." : "sk-..."}
               onChange={(e) => setConfig({ apiKey: e.target.value })}
             />
-            <button type="button" className="ghost-button" aria-label="API 키 표시 전환" onClick={() => setShowKey((v) => !v)}>
+            <button
+              type="button"
+              className="ghost-button"
+              aria-label="API 키 표시 전환"
+              onClick={() => setShowKey((v) => !v)}
+            >
               {showKey ? "숨기기" : "표시"}
             </button>
           </div>
@@ -78,26 +94,17 @@ function SettingsModalContent({ onClose }: { onClose: () => void }) {
         <label className="ai-field">
           <span className="ai-field-label">모델</span>
           <select
-            aria-label="추천 모델"
+            aria-label="모델"
             className="auth-input"
-            value=""
-            onChange={(e) => {
-              if (e.target.value) setConfig({ model: e.target.value });
-            }}
+            value={config.model}
+            onChange={(e) => setConfig({ model: e.target.value })}
           >
-            <option value="">추천 모델 선택…</option>
             {RECOMMENDED_MODELS[provider].map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
               </option>
             ))}
           </select>
-          <input
-            aria-label="모델 이름"
-            className="auth-input"
-            value={config.model}
-            onChange={(e) => setConfig({ model: e.target.value })}
-          />
         </label>
 
         <p className="settings-note">
