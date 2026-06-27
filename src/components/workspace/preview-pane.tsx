@@ -79,7 +79,7 @@ export function PreviewPane({
       ) : (
         <div className="preview-placeholder">
           <FileText size={40} aria-hidden="true" />
-          <p>미리보기 없음. 렌더를 실행하면 미리보기가 표시됩니다.</p>
+          <p>렌더를 실행하면 미리보기가 표시됩니다.</p>
         </div>
       )}
       {document.renderError ? (

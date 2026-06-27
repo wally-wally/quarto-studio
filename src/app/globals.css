@@ -770,13 +770,13 @@ input {
   justify-content: center;
   gap: 14px;
   padding: 40px;
-  background: var(--preview-bg);
-  color: #9ca3af;
+  background: var(--bg-base);
+  color: var(--fg-muted);
   text-align: center;
 }
 
 .preview-placeholder svg {
-  color: #d1d5db;
+  color: var(--fg-subtle);
 }
 
 .preview-placeholder p {
@@ -784,7 +784,7 @@ input {
   max-width: 280px;
   font-size: 13px;
   line-height: 1.5;
-  color: #9ca3af;
+  color: var(--fg-muted);
 }
 
 .render-error {
