@@ -116,7 +116,7 @@ function SettingsModalContent({ onClose }: { onClose: () => void }) {
             저장
           </button>
           <button type="button" className="ghost-button" onClick={onClose}>
-            취소
+            닫기
           </button>
         </div>
       </div>

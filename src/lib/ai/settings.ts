@@ -8,8 +8,8 @@ export type AiSettings = {
 
 export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: string }[]> = {
   anthropic: [
-    { label: "Claude Sonnet 4.6 (균형, 추천)", value: "claude-sonnet-4-6" },
     { label: "Claude Opus 4.8 (고품질)", value: "claude-opus-4-8" },
+    { label: "Claude Sonnet 4.6 (균형, 추천)", value: "claude-sonnet-4-6" },
     { label: "Claude Haiku 4.5 (빠름)", value: "claude-haiku-4-5" },
   ],
   openai: [
