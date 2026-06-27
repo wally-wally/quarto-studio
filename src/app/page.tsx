@@ -3,6 +3,7 @@ import { createAppDocumentService } from "@/lib/db/app-service";
 import {
   createDocumentAction,
   deleteDocumentAction,
+  getRenderJobAction,
   renderDocumentAction,
   renameDocumentAction,
   saveDocumentAction,
@@ -11,8 +12,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const initialWorkspace = createAppDocumentService().getInitialWorkspace();
+export default async function HomePage() {
+  const initialWorkspace = await createAppDocumentService().getInitialWorkspace();
 
   return (
     <QuartoWorkspace
@@ -23,6 +24,7 @@ export default function HomePage() {
       createDocument={createDocumentAction}
       renameDocument={renameDocumentAction}
       deleteDocument={deleteDocumentAction}
+      getRenderJob={getRenderJobAction}
     />
   );
 }

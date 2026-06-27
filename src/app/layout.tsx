@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Quarto Studio",
-  description: "SQLite-backed Quarto document studio"
+  description: "Postgres-backed Quarto document studio"
 };
 
 export default function RootLayout({

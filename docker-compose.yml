@@ -1,0 +1,39 @@
+# Phase 1: Postgres + docker-socket-proxy.
+# web / worker 서비스는 Unit 5(풀 와이어링)에서 추가한다.
+name: quarto-studio
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: quarto
+      POSTGRES_PASSWORD: quarto
+      POSTGRES_DB: quarto_studio
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quarto -d quarto_studio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # 워커가 일회용 렌더 컨테이너를 띄우기 위한 Docker API를 최소 권한으로 노출.
+  # 원시 docker.sock을 워커에 직접 주지 않기 위함(호스트 루트 탈취 방지).
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    environment:
+      CONTAINERS: 1   # /containers 조회
+      IMAGES: 1       # 렌더 이미지 확인
+      POST: 1         # 컨테이너 생성/시작 등 쓰기 메서드 허용
+      EXEC: 0
+      NETWORKS: 0
+      VOLUMES: 0
+      INFO: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+volumes:
+  pgdata:

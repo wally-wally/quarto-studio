@@ -20,3 +20,4 @@ docker/render/smoke/*.html
 docker/render/smoke/*_files/
 docker/render/smoke/.quarto/
 docker/render/**/index_files/
+.playwright-mcp/

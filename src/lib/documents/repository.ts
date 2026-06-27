@@ -1,10 +1,10 @@
-import crypto from "node:crypto";
-import Database from "better-sqlite3";
+import type { Sql } from "postgres";
 import { normalizeSlug } from "./slug";
 import type {
   CreateDocumentInput,
   DocumentRecord,
   DocumentSummary,
+  RenderJobRecord,
   RenameDocumentInput,
   SaveDocumentInput
 } from "./types";
@@ -14,13 +14,23 @@ type DocumentRow = {
   title: string;
   slug: string;
   content: string;
-  execute_code: 0 | 1;
-  render_status: DocumentRecord["renderStatus"];
+  execute_code: boolean;
+  created_at: Date;
+  updated_at: Date;
+  job_status: string | null;
+  job_html: string | null;
+  job_log: string | null;
+  job_finished_at: Date | null;
+};
+
+type RenderJobRow = {
+  id: string;
+  document_id: string;
+  status: RenderJobRecord["status"];
+  log: string | null;
   rendered_html: string | null;
-  render_error: string | null;
-  created_at: string;
-  updated_at: string;
-  rendered_at: string | null;
+  created_at: Date;
+  finished_at: Date | null;
 };
 
 const seedContent = `---
@@ -30,7 +40,7 @@ format: html
 
 # Getting Started
 
-이 문서는 SQLite에 저장되고 Quarto로 렌더링됩니다.
+이 문서는 Postgres에 저장되고 Quarto로 렌더링됩니다.
 
 ::: {.callout-note}
 코드 실행은 기본적으로 꺼져 있습니다.
@@ -63,23 +73,37 @@ format:
 `;
 }
 
-function nowIso() {
-  return new Date().toISOString();
+function deriveRenderStatus(row: DocumentRow): Pick<DocumentRecord, "renderStatus" | "renderedHtml" | "renderError" | "renderedAt"> {
+  const status = row.job_status;
+  if (!status) {
+    return { renderStatus: "idle", renderedHtml: null, renderError: null, renderedAt: null };
+  }
+  if (status === "queued" || status === "running") {
+    return { renderStatus: "rendering", renderedHtml: row.job_html, renderError: null, renderedAt: row.job_finished_at?.toISOString() ?? null };
+  }
+  if (status === "succeeded") {
+    return {
+      renderStatus: "success",
+      renderedHtml: row.job_html,
+      renderError: null,
+      renderedAt: row.job_finished_at ? row.job_finished_at.toISOString() : null
+    };
+  }
+  // failed | timed_out
+  return { renderStatus: "error", renderedHtml: null, renderError: row.job_log, renderedAt: null };
 }
 
 function toDocument(row: DocumentRow): DocumentRecord {
+  const renderFields = deriveRenderStatus(row);
   return {
     id: row.id,
     title: row.title,
     slug: row.slug,
     content: row.content,
-    executeCode: row.execute_code === 1,
-    renderStatus: row.render_status,
-    renderedHtml: row.rendered_html,
-    renderError: row.render_error,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    renderedAt: row.rendered_at
+    executeCode: row.execute_code,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+    ...renderFields
   };
 }
 
@@ -95,211 +119,214 @@ function toSummary(document: DocumentRecord): DocumentSummary {
   };
 }
 
-export function ensureDocumentSchema(db: Database.Database) {
-  db.exec(`
-    create table if not exists documents (
-      id text primary key,
-      title text not null,
-      slug text not null unique,
-      content text not null,
-      execute_code integer not null default 0,
-      render_status text not null default 'idle',
-      rendered_html text,
-      render_error text,
-      created_at text not null,
-      updated_at text not null,
-      rendered_at text
-    );
-  `);
-}
-
-export function createDocumentRepository(db: Database.Database) {
-  const selectById = db.prepare<[string], DocumentRow>(
-    "select * from documents where id = ?"
-  );
-  const selectBySlug = db.prepare<[string], DocumentRow>(
-    "select * from documents where slug = ?"
-  );
-  const selectAll = db.prepare<[], DocumentRow>(
-    "select * from documents order by updated_at desc"
-  );
-  const getDocument = (id: string): DocumentRecord | null => {
-    const row = selectById.get(id);
+export function createDocumentRepository(sql: Sql) {
+  const getDocumentById = async (id: string): Promise<DocumentRecord | null> => {
+    const rows = await sql<DocumentRow[]>`
+      SELECT d.*,
+             j.status as job_status, js.rendered_html as job_html,
+             j.log as job_log, js.finished_at as job_finished_at
+      FROM documents d
+      LEFT JOIN LATERAL (
+        SELECT status, log
+        FROM render_jobs
+        WHERE document_id = d.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) j ON true
+      LEFT JOIN LATERAL (
+        SELECT rendered_html, finished_at
+        FROM render_jobs
+        WHERE document_id = d.id AND status = 'succeeded'
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) js ON true
+      WHERE d.id = ${id}
+    `;
+    const row = rows[0];
     return row ? toDocument(row) : null;
   };
-  const assertDocumentChanged = (changes: number, id: string) => {
-    if (changes === 0) {
-      throw new Error(`Document not found: ${id}`);
-    }
-  };
-  const createUniqueSlug = (title: string, id: string) => {
+
+  const createUniqueSlug = async (title: string, id: string): Promise<string> => {
     const baseSlug = normalizeSlug(title, `document-${id.slice(0, 8)}`);
     let candidate = baseSlug;
     let suffix = 2;
 
-    while (selectBySlug.get(candidate)) {
+    while (true) {
+      const existing = await sql`SELECT id FROM documents WHERE slug = ${candidate}`;
+      if (existing.length === 0) break;
       candidate = `${baseSlug}-${suffix}`;
       suffix += 1;
     }
 
     return candidate;
   };
-  const insertDocument = (document: DocumentRecord) => {
-    db.prepare(`
-      insert into documents (
-        id, title, slug, content, execute_code, render_status,
-        rendered_html, render_error, created_at, updated_at, rendered_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      document.id,
-      document.title,
-      document.slug,
-      document.content,
-      document.executeCode ? 1 : 0,
-      document.renderStatus,
-      document.renderedHtml,
-      document.renderError,
-      document.createdAt,
-      document.updatedAt,
-      document.renderedAt
-    );
-  };
 
   return {
-    listDocuments(): DocumentSummary[] {
-      return selectAll.all().map(toDocument).map(toSummary);
+    async listDocuments(): Promise<DocumentSummary[]> {
+      const rows = await sql<DocumentRow[]>`
+        SELECT d.*,
+               j.status as job_status, js.rendered_html as job_html,
+               j.log as job_log, js.finished_at as job_finished_at
+        FROM documents d
+        LEFT JOIN LATERAL (
+          SELECT status, log
+          FROM render_jobs
+          WHERE document_id = d.id
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) j ON true
+        LEFT JOIN LATERAL (
+          SELECT rendered_html, finished_at
+          FROM render_jobs
+          WHERE document_id = d.id AND status = 'succeeded'
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) js ON true
+        ORDER BY d.updated_at DESC
+      `;
+      return rows.map(toDocument).map(toSummary);
     },
 
-    getDocument(id: string): DocumentRecord | null {
-      return getDocument(id);
+    async getDocument(id: string): Promise<DocumentRecord | null> {
+      return getDocumentById(id);
     },
 
-    getOrCreateSeedDocument(): DocumentRecord {
-      const existing = selectAll.get();
-      if (existing) {
-        return toDocument(existing);
+    async getOrCreateSeedDocument(): Promise<DocumentRecord> {
+      const existing = await sql<DocumentRow[]>`
+        SELECT d.*,
+               j.status as job_status, js.rendered_html as job_html,
+               j.log as job_log, js.finished_at as job_finished_at
+        FROM documents d
+        LEFT JOIN LATERAL (
+          SELECT status, log
+          FROM render_jobs
+          WHERE document_id = d.id
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) j ON true
+        LEFT JOIN LATERAL (
+          SELECT rendered_html, finished_at
+          FROM render_jobs
+          WHERE document_id = d.id AND status = 'succeeded'
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) js ON true
+        ORDER BY d.created_at ASC
+        LIMIT 1
+      `;
+      if (existing.length > 0) {
+        return toDocument(existing[0]);
       }
 
-      const timestamp = nowIso();
-      const document: DocumentRecord = {
-        id: crypto.randomUUID(),
-        title: "Getting Started",
-        slug: "getting-started",
-        content: seedContent,
-        executeCode: false,
-        renderStatus: "idle",
-        renderedHtml: null,
-        renderError: null,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        renderedAt: null
-      };
-
-      insertDocument(document);
-
-      return document;
+      const inserted = await sql<{ id: string }[]>`
+        INSERT INTO documents (title, slug, content, execute_code)
+        VALUES ('Getting Started', 'getting-started', ${seedContent}, false)
+        RETURNING id
+      `;
+      const id = inserted[0].id;
+      const doc = await getDocumentById(id);
+      if (!doc) throw new Error("Failed to create seed document");
+      return doc;
     },
 
-    createDocument(input: CreateDocumentInput): DocumentRecord {
-      const id = crypto.randomUUID();
+    async createDocument(input: CreateDocumentInput): Promise<DocumentRecord> {
       const title = normalizeTitle(input.title);
-      const timestamp = nowIso();
-      const document: DocumentRecord = {
-        id,
-        title,
-        slug: createUniqueSlug(title, id),
-        content: createDefaultContent(title),
-        executeCode: true,
-        renderStatus: "idle",
-        renderedHtml: null,
-        renderError: null,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        renderedAt: null
-      };
 
-      insertDocument(document);
-      return document;
+      // Insert with a temporary placeholder slug, then update once the DB-generated id is known
+      const inserted = await sql<{ id: string }[]>`
+        INSERT INTO documents (title, slug, content, execute_code)
+        VALUES (${title}, ${`temp-${Date.now()}`}, ${createDefaultContent(title)}, true)
+        RETURNING id
+      `;
+      const id = inserted[0].id;
+      const slug = await createUniqueSlug(title, id);
+
+      await sql`
+        UPDATE documents SET slug = ${slug} WHERE id = ${id}
+      `;
+
+      const doc = await getDocumentById(id);
+      if (!doc) throw new Error(`Document not found: ${id}`);
+      return doc;
     },
 
-    renameDocument(
+    async renameDocument(
       input: Pick<RenameDocumentInput, "id" | "title">
-    ): DocumentRecord {
+    ): Promise<DocumentRecord> {
       const title = normalizeTitle(input.title);
-      const updatedAt = nowIso();
-      const result = db.prepare(`
-        update documents
-        set title = ?,
-            updated_at = ?
-        where id = ?
-      `).run(title, updatedAt, input.id);
-      assertDocumentChanged(result.changes, input.id);
-
-      const renamed = getDocument(input.id);
-      if (!renamed) {
+      const result = await sql`
+        UPDATE documents
+        SET title = ${title},
+            updated_at = now()
+        WHERE id = ${input.id}
+      `;
+      if (result.count === 0) {
         throw new Error(`Document not found: ${input.id}`);
       }
-      return renamed;
+
+      const doc = await getDocumentById(input.id);
+      if (!doc) throw new Error(`Document not found: ${input.id}`);
+      return doc;
     },
 
-    deleteDocument(id: string): void {
-      const result = db.prepare("delete from documents where id = ?").run(id);
-      assertDocumentChanged(result.changes, id);
+    async deleteDocument(id: string): Promise<void> {
+      const result = await sql`DELETE FROM documents WHERE id = ${id}`;
+      if (result.count === 0) {
+        throw new Error(`Document not found: ${id}`);
+      }
     },
 
-    updateDocument(input: SaveDocumentInput): DocumentRecord {
-      const updatedAt = nowIso();
-      db.prepare(`
-        update documents
-        set title = ?,
-            slug = ?,
-            content = ?,
-            execute_code = ?,
-            render_status = 'idle',
-            render_error = null,
-            updated_at = ?
-        where id = ?
-      `).run(
-        input.title,
-        input.slug,
-        input.content,
-        input.executeCode ? 1 : 0,
-        updatedAt,
-        input.id
-      );
-
-      const saved = getDocument(input.id);
-      if (!saved) {
+    async updateDocument(input: SaveDocumentInput): Promise<DocumentRecord> {
+      const result = await sql`
+        UPDATE documents
+        SET title = ${input.title},
+            slug = ${input.slug},
+            content = ${input.content},
+            execute_code = ${input.executeCode},
+            updated_at = now()
+        WHERE id = ${input.id}
+      `;
+      if (result.count === 0) {
         throw new Error(`Document not found: ${input.id}`);
       }
-      return saved;
+
+      const doc = await getDocumentById(input.id);
+      if (!doc) throw new Error(`Document not found: ${input.id}`);
+      return doc;
     },
 
-    markRendering(id: string): void {
-      const result = db.prepare(
-        "update documents set render_status = 'rendering', render_error = null where id = ?"
-      ).run(id);
-      assertDocumentChanged(result.changes, id);
+    async enqueueRenderJob(input: {
+      documentId: string;
+      contentSnapshot: string;
+      executeCode: boolean;
+    }): Promise<{ jobId: string }> {
+      const inserted = await sql<{ id: string }[]>`
+        INSERT INTO render_jobs (document_id, status, content_snapshot, execute_code)
+        VALUES (${input.documentId}, 'queued', ${input.contentSnapshot}, ${input.executeCode})
+        RETURNING id
+      `;
+      const jobId = inserted[0].id;
+      await sql`SELECT pg_notify('render_jobs', ${jobId})`;
+      return { jobId };
     },
 
-    markRenderSuccess(
-      id: string,
-      renderedHtml: string,
-      renderedAt = nowIso()
-    ): void {
-      const result = db.prepare(`
-        update documents
-        set render_status = 'success', rendered_html = ?, render_error = null, rendered_at = ?
-        where id = ?
-      `).run(renderedHtml, renderedAt, id);
-      assertDocumentChanged(result.changes, id);
-    },
-
-    markRenderError(id: string, renderError: string): void {
-      const result = db.prepare(
-        "update documents set render_status = 'error', render_error = ? where id = ?"
-      ).run(renderError, id);
-      assertDocumentChanged(result.changes, id);
+    async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
+      const rows = await sql<RenderJobRow[]>`
+        SELECT id, document_id, status, log, rendered_html, created_at, finished_at
+        FROM render_jobs
+        WHERE id = ${jobId}
+      `;
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        id: row.id,
+        documentId: row.document_id,
+        status: row.status,
+        log: row.log,
+        renderedHtml: row.rendered_html,
+        createdAt: row.created_at.toISOString(),
+        finishedAt: row.finished_at ? row.finished_at.toISOString() : null
+      };
     }
   };
 }

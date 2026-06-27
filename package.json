@@ -11,15 +11,17 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "migrate": "node scripts/migrate.mjs",
+    "worker": "tsx worker/render-worker.ts",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
-    "better-sqlite3": "^12.11.1",
     "lucide-react": "^1.21.0",
     "next": "^16.2.9",
+    "postgres": "^3.4.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -27,13 +29,13 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
     "jsdom": "^29.1.1",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }

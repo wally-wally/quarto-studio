@@ -31,3 +31,7 @@ export type RenameDocumentAction = (
 export type DeleteDocumentAction = (
   input: DeleteDocumentInput
 ) => Promise<WorkspaceState>;
+
+export type RenderDocumentAction = (
+  input: SaveDocumentInput
+) => Promise<{ workspace: WorkspaceState; jobId: string }>;
