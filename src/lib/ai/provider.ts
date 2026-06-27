@@ -3,11 +3,16 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel, JSONValue } from "ai";
 import type { AiProvider } from "./settings";
 
+// 공식 REST 엔드포인트를 명시한다. @ai-sdk/anthropic@4.0.0의 기본 baseURL이 `/v1`을
+// 누락해 `https://api.anthropic.com/messages`로 404가 나므로(실측), 명시적으로 지정한다.
+const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
+const OPENAI_BASE_URL = "https://api.openai.com/v1";
+
 export function resolveModel(provider: AiProvider, apiKey: string, model: string): LanguageModel {
   if (provider === "openai") {
-    return createOpenAI({ apiKey })(model);
+    return createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })(model);
   }
-  return createAnthropic({ apiKey })(model);
+  return createAnthropic({ apiKey, baseURL: ANTHROPIC_BASE_URL })(model);
 }
 
 // 추론 effort는 medium 고정. 프로바이더별 표현이 다르다:
