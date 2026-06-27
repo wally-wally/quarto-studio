@@ -63,8 +63,7 @@ export async function POST(req: Request): Promise<Response> {
     model: resolveModel(provider, apiKey, model),
     system: buildSystemPrompt({ hasAttachments: parts.length > 0 }),
     messages: [{ role: "user", content }],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    providerOptions: buildProviderOptions(provider) as any,
+    providerOptions: buildProviderOptions(provider),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     abortSignal: req.signal,
     onError: ({ error }) => {
