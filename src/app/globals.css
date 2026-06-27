@@ -1291,3 +1291,65 @@ input {
     background: #fff;
   }
 }
+
+/* ── AI 드로어 ── */
+.ai-drawer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+}
+.ai-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ai-drawer-toggle:hover { color: var(--fg); }
+.ai-drawer-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ai-field { display: flex; flex-direction: column; gap: 4px; position: relative; }
+.ai-field-label { font-size: 12px; color: var(--fg-subtle); }
+.ai-prompt {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+}
+.ai-counter { align-self: flex-end; font-size: 11px; color: var(--fg-subtle); }
+.ai-attachments { display: flex; align-items: center; gap: 10px; }
+.ai-attach-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.ai-attach-meta { font-size: 11px; color: var(--fg-subtle); }
+.ai-chip-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.ai-chip-size { color: var(--fg-subtle); font-size: 11px; }
+.ai-chip-remove { background: none; border: none; color: var(--fg-subtle); cursor: pointer; display: inline-flex; }
+.ai-error { font-size: 12px; color: var(--danger); margin: 0; }
+.ai-actions { display: flex; gap: 8px; }
+.ai-link { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
