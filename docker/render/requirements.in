@@ -1,0 +1,14 @@
+jupyter
+jupyter-cache
+pyyaml
+numpy
+pandas
+matplotlib
+altair
+vega_datasets
+plotly
+seaborn
+scikit-learn
+scipy
+statsmodels
+# 참고: 동결 시 ipykernel 스택이 nest-asyncio 대신 nest-asyncio2 포크를 선택함(requirements.txt). 의도된 핀.

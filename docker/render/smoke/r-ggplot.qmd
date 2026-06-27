@@ -1,0 +1,11 @@
+---
+title: "R ggplot smoke"
+format: html
+---
+
+```{r}
+library(ggplot2)
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point() +
+  labs(title = "Engine displacement vs highway mpg")
+```

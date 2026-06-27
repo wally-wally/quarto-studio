@@ -2,7 +2,7 @@
 title: "Julia 차트 (Plots.jl)"
 author: "Quarto Studio"
 format: html
-jupyter: julia-1.12
+jupyter: julia-1.10
 ---
 
 ## 코드 실행 안내
