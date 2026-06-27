@@ -334,7 +334,6 @@ export function QuartoWorkspace({
           executeCode={draft.executeCode}
           isBusy={paneBusy}
           aiDrawerOpen={aiDrawerOpen}
-          generating={generating}
           aiHandlers={aiHandlers}
           onToggleAiDrawer={() => setAiDrawerOpen((v) => !v)}
           onOpenSettings={() => setSettingsOpen(true)}

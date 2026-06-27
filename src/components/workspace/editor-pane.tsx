@@ -9,7 +9,6 @@ type EditorPaneProps = {
   executeCode: boolean;
   isBusy: boolean;
   aiDrawerOpen: boolean;
-  generating: boolean;
   aiHandlers: AiGenerationHandlers;
   onToggleAiDrawer: () => void;
   onOpenSettings: () => void;
@@ -27,7 +26,6 @@ export function EditorPane({
   executeCode,
   isBusy,
   aiDrawerOpen,
-  generating,
   aiHandlers,
   onToggleAiDrawer,
   onOpenSettings,
