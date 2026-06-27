@@ -52,11 +52,11 @@ export async function prepareAttachments(files: InputFile[], provider: AiProvide
       if (provider === "anthropic") {
         parts.push({ kind: "pdf", name: file.name, bytes: file.bytes });
       } else {
-        const text = await parseOffice(toBuffer(file.bytes), { fileType: "pdf" });
+        const text = (await parseOffice(toBuffer(file.bytes), { fileType: "pdf" })).toText();
         parts.push({ kind: "text", name: file.name, text: truncate(text) });
       }
     } else if (ext === "docx" || ext === "pptx") {
-      const text = await parseOffice(toBuffer(file.bytes), { fileType: ext });
+      const text = (await parseOffice(toBuffer(file.bytes), { fileType: ext })).toText();
       parts.push({ kind: "text", name: file.name, text: truncate(text) });
     }
     // 그 외 확장자는 검증 단계(validation)에서 이미 차단됨.

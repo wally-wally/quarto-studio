@@ -3,8 +3,9 @@ import * as XLSX from "xlsx";
 
 // officeparser(docx/pptx/pdf 텍스트 추출)는 바이너리 픽스처 없이 모킹한다.
 // officeparser@7.2.2은 parseOfficeAsync 대신 parseOffice (async)를 named export 한다.
+// parseOffice는 AST 객체를 반환하며, .toText()로 문자열을 추출한다.
 vi.mock("officeparser", () => ({
-  parseOffice: vi.fn().mockResolvedValue("문서에서 추출된 텍스트"),
+  parseOffice: vi.fn().mockResolvedValue({ toText: () => "문서에서 추출된 텍스트" }),
 }));
 
 import { parseOffice } from "officeparser";
@@ -57,10 +58,11 @@ describe("prepareAttachments", () => {
     );
     expect(parts.every((p) => p.kind === "text")).toBe(true);
     expect(parseOffice).toHaveBeenCalledTimes(2);
+    expect((parts[0] as { text: string }).text).toBe("문서에서 추출된 텍스트");
   });
 
   it("추출 텍스트가 상한을 넘으면 잘라낸다", async () => {
-    (parseOffice as ReturnType<typeof vi.fn>).mockResolvedValueOnce("x".repeat(MAX_EXTRACTED_CHARS + 100));
+    (parseOffice as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ toText: () => "x".repeat(MAX_EXTRACTED_CHARS + 100) });
     const parts = await prepareAttachments([{ name: "big.docx", bytes: new Uint8Array([1]) }], "anthropic");
     const text = (parts[0] as { text: string }).text;
     expect(text.length).toBeLessThanOrEqual(MAX_EXTRACTED_CHARS + 20);
