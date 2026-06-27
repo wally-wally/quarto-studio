@@ -6,6 +6,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["src/test/setup.ts"],
+    // 테스트 실행 전 테스트 전용 DB를 생성·마이그레이션(dev DB와 분리).
+    globalSetup: ["src/test/global-setup.ts"],
     fileParallelism: false,
     // next build(standalone)가 소스·테스트를 .next/standalone로 복사하므로 제외.
     exclude: [...configDefaults.exclude, "**/.next/**"]

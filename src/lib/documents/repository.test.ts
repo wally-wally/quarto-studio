@@ -1,11 +1,9 @@
 import { randomUUID } from "node:crypto";
-import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createDocumentRepository } from "./repository";
+import { createTestSql, truncateAll } from "@/test/db";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ?? "postgres://quarto:quarto@localhost:5432/quarto_studio";
-const sql = postgres(DATABASE_URL);
+const sql = createTestSql();
 const repository = createDocumentRepository(sql);
 
 afterAll(async () => {
@@ -13,7 +11,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`TRUNCATE users, sessions, documents, render_jobs, artifacts RESTART IDENTITY CASCADE`;
+  await truncateAll(sql);
 });
 
 async function createTestUser(email = "test@example.com") {

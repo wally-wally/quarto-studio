@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterAll } from "vitest";
-import postgres from "postgres";
 import { closeSql } from "@/lib/db/connection";
+import { createTestSql, truncateAll } from "@/test/db";
 
 // Mock next/headers cookies
 const cookieStore = new Map<string, string>();
@@ -19,9 +19,7 @@ vi.mock("next/headers", () => ({
 
 import { createSession, getCurrentUser, setSessionCookie, destroySession } from "./session";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ?? "postgres://quarto:quarto@localhost:5432/quarto_studio";
-const sql = postgres(DATABASE_URL);
+const sql = createTestSql();
 
 afterAll(async () => {
   await sql.end();
@@ -30,7 +28,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   cookieStore.clear();
-  await sql`TRUNCATE sessions, users RESTART IDENTITY CASCADE`;
+  await truncateAll(sql);
 });
 
 describe("session", () => {
