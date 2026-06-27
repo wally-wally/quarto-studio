@@ -7,5 +7,7 @@ jupyter: julia-1.10
 ```{julia}
 using Plots
 gr()
-plot(1:10, (1:10).^2, title = "한글 제목 테스트", xlabel = "가로축", ylabel = "세로축", legend = false)
+# 음수 값 포함 → 축 라벨에 U+2212(−)가 생긴다. NanumGothic처럼 U+2212가 없는 폰트면
+# GR이 "glyph missing from current font: 8722"를 출력하므로 smoke.sh가 회귀를 잡는다.
+plot(-5:5, (-5:5).^3, title = "한글 제목 테스트", xlabel = "가로축", ylabel = "세로축", legend = false)
 ```

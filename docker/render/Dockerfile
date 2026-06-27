@@ -64,13 +64,19 @@ RUN julia -e 'using Pkg; Pkg.Registry.add("General"); Pkg.resolve(); Pkg.instant
 RUN apt-get update && apt-get install -y --no-install-recommends \
       fonts-nanum fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
+# Julia Plots(GR)는 폰트를 "<이름>.ttf" 파일명으로 찾는다. Noto Sans CJK KR은 .ttc라
+# 이름으로 못 찾고, NanumGothic은 .ttf지만 U+2212(−)가 없어 음수 축이 깨진다.
+# 한글+U+2212를 모두 가진 Noto KR을 단독 .ttf로 추출해 GR이 로드하게 한다.
+COPY conf/extract-noto-kr.py /tmp/extract-noto-kr.py
+RUN python3 /tmp/extract-noto-kr.py
 COPY conf/matplotlibrc /opt/mpl/matplotlibrc
 COPY conf/Rprofile.site /etc/R/Rprofile.site
 COPY conf/fonts-local.conf /etc/fonts/local.conf
 COPY conf/startup.jl /opt/julia-depot/config/startup.jl
 RUN fc-cache -f \
     && rm -rf /opt/mpl/fontlist-*.json \
-    && fc-list | grep -i nanum
+    && fc-list | grep -i nanum \
+    && test -f /usr/share/fonts/truetype/noto-kr/NotoSansKR.ttf
 
 # UTF-8 로케일: R의 멀티바이트(한글) 그래픽 렌더에 필수.
 # 기본 POSIX 로케일에서는 한글이 두부/유니코드 escape로 깨진다.
