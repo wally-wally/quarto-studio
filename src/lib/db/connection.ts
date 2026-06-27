@@ -1,34 +1,18 @@
-import fs from "node:fs";
-import path from "node:path";
-import Database from "better-sqlite3";
-import { ensureDocumentSchema } from "@/lib/documents/repository";
+import postgres from "postgres";
+import type { Sql } from "postgres";
 
-let singleton: Database.Database | null = null;
+let singleton: Sql | null = null;
 
-function resolveDatabasePath() {
-  return (
-    process.env.QUARTO_STUDIO_DB_PATH ??
-    path.join(process.cwd(), "data", "quarto-studio.db")
-  );
-}
-
-export function openAppDatabase() {
-  if (singleton) {
-    return singleton;
-  }
-
-  const dbPath = resolveDatabasePath();
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  singleton = new Database(dbPath);
-  ensureDocumentSchema(singleton);
+export function getSql(): Sql {
+  if (singleton) return singleton;
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL environment variable is required");
+  singleton = postgres(url);
   return singleton;
 }
 
-export function closeAppDatabase() {
-  if (!singleton) {
-    return;
-  }
-
-  singleton.close();
+export async function closeSql(): Promise<void> {
+  if (!singleton) return;
+  await singleton.end();
   singleton = null;
 }

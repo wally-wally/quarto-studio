@@ -1,25 +1,23 @@
-import type { RenderResult } from "@/lib/quarto/render";
-import { renderDocumentToHtml } from "@/lib/quarto/render";
 import type {
   CreateDocumentInput,
   DeleteDocumentInput,
   DocumentRecord,
   DocumentSummary,
+  RenderJobRecord,
   RenameDocumentInput,
   SaveDocumentInput,
 } from "./types";
 
 type DocumentRepository = {
-  listDocuments(): DocumentSummary[];
-  getDocument(id: string): DocumentRecord | null;
-  getOrCreateSeedDocument(): DocumentRecord;
-  createDocument(input: CreateDocumentInput): DocumentRecord;
-  renameDocument(input: Pick<RenameDocumentInput, "id" | "title">): DocumentRecord;
-  deleteDocument(id: string): void;
-  updateDocument(input: SaveDocumentInput): DocumentRecord;
-  markRendering(id: string): void;
-  markRenderSuccess(id: string, renderedHtml: string): void;
-  markRenderError(id: string, renderError: string): void;
+  listDocuments(ownerId: string): Promise<DocumentSummary[]>;
+  getDocument(ownerId: string, id: string): Promise<DocumentRecord | null>;
+  getOrCreateSeedDocument(ownerId: string): Promise<DocumentRecord>;
+  createDocument(ownerId: string, input: CreateDocumentInput): Promise<DocumentRecord>;
+  renameDocument(ownerId: string, input: Pick<RenameDocumentInput, "id" | "title">): Promise<DocumentRecord>;
+  deleteDocument(ownerId: string, id: string): Promise<void>;
+  updateDocument(ownerId: string, input: SaveDocumentInput): Promise<DocumentRecord>;
+  enqueueRenderJob(input: { ownerId: string; documentId: string; contentSnapshot: string; executeCode: boolean }): Promise<{ jobId: string }>;
+  getRenderJob(jobId: string): Promise<RenderJobRecord | null>;
 };
 
 export type WorkspaceState = {
@@ -29,7 +27,6 @@ export type WorkspaceState = {
 
 type Dependencies = {
   repository: DocumentRepository;
-  renderDocument?: (document: DocumentRecord) => Promise<RenderResult>;
 };
 
 function assertDocument(
@@ -43,38 +40,31 @@ function assertDocument(
   return document;
 }
 
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export function createDocumentService({
-  repository,
-  renderDocument = renderDocumentToHtml,
-}: Dependencies) {
-  const buildWorkspace = (activeDocument: DocumentRecord): WorkspaceState => ({
-    documents: repository.listDocuments(),
+export function createDocumentService({ repository }: Dependencies) {
+  const buildWorkspace = async (ownerId: string, activeDocument: DocumentRecord): Promise<WorkspaceState> => ({
+    documents: await repository.listDocuments(ownerId),
     activeDocument,
   });
 
   return {
-    getInitialWorkspace(): WorkspaceState {
-      return buildWorkspace(repository.getOrCreateSeedDocument());
+    async getInitialWorkspace(ownerId: string): Promise<WorkspaceState> {
+      return buildWorkspace(ownerId, await repository.getOrCreateSeedDocument(ownerId));
     },
 
-    getWorkspace(documentId: string): WorkspaceState {
-      return buildWorkspace(assertDocument(repository.getDocument(documentId), documentId));
+    async getWorkspace(ownerId: string, documentId: string): Promise<WorkspaceState> {
+      return buildWorkspace(ownerId, assertDocument(await repository.getDocument(ownerId, documentId), documentId));
     },
 
-    saveDocument(input: SaveDocumentInput): WorkspaceState {
-      return buildWorkspace(repository.updateDocument(input));
+    async saveDocument(ownerId: string, input: SaveDocumentInput): Promise<WorkspaceState> {
+      return buildWorkspace(ownerId, await repository.updateDocument(ownerId, input));
     },
 
-    createDocument(input: CreateDocumentInput): WorkspaceState {
-      return buildWorkspace(repository.createDocument(input));
+    async createDocument(ownerId: string, input: CreateDocumentInput): Promise<WorkspaceState> {
+      return buildWorkspace(ownerId, await repository.createDocument(ownerId, input));
     },
 
-    renameDocument(input: RenameDocumentInput): WorkspaceState {
-      const renamedDocument = repository.renameDocument({
+    async renameDocument(ownerId: string, input: RenameDocumentInput): Promise<WorkspaceState> {
+      const renamedDocument = await repository.renameDocument(ownerId, {
         id: input.id,
         title: input.title,
       });
@@ -82,59 +72,44 @@ export function createDocumentService({
         input.id === input.activeDocumentId
           ? renamedDocument
           : assertDocument(
-              repository.getDocument(input.activeDocumentId),
+              await repository.getDocument(ownerId, input.activeDocumentId),
               input.activeDocumentId,
             );
 
-      return buildWorkspace(activeDocument);
+      return buildWorkspace(ownerId, activeDocument);
     },
 
-    deleteDocument(input: DeleteDocumentInput): WorkspaceState {
-      repository.deleteDocument(input.id);
+    async deleteDocument(ownerId: string, input: DeleteDocumentInput): Promise<WorkspaceState> {
+      await repository.deleteDocument(ownerId, input.id);
 
-      const documents = repository.listDocuments();
+      const documents = await repository.listDocuments(ownerId);
       if (documents.length === 0) {
-        return buildWorkspace(repository.createDocument({ title: "새 문서" }));
+        return buildWorkspace(ownerId, await repository.createDocument(ownerId, { title: "새 문서" }));
       }
 
       const nextActiveDocumentId =
         input.id === input.activeDocumentId ? documents[0].id : input.activeDocumentId;
 
       return buildWorkspace(
-        assertDocument(repository.getDocument(nextActiveDocumentId), nextActiveDocumentId),
+        ownerId,
+        assertDocument(await repository.getDocument(ownerId, nextActiveDocumentId), nextActiveDocumentId),
       );
     },
 
-    async renderDocument(input: SaveDocumentInput): Promise<WorkspaceState> {
-      const savedDocument = repository.updateDocument(input);
+    async renderDocument(ownerId: string, input: SaveDocumentInput): Promise<{ workspace: WorkspaceState; jobId: string }> {
+      const savedDocument = await repository.updateDocument(ownerId, input);
+      const { jobId } = await repository.enqueueRenderJob({
+        ownerId,
+        documentId: savedDocument.id,
+        contentSnapshot: input.content,
+        executeCode: input.executeCode,
+      });
+      const workspace = await buildWorkspace(ownerId, assertDocument(await repository.getDocument(ownerId, savedDocument.id), savedDocument.id));
+      return { workspace, jobId };
+    },
 
-      repository.markRendering(savedDocument.id);
-      let result: RenderResult;
-
-      try {
-        result = await renderDocument(savedDocument);
-      } catch (error) {
-        repository.markRenderError(savedDocument.id, toErrorMessage(error));
-        const latestDocument = assertDocument(
-          repository.getDocument(savedDocument.id),
-          savedDocument.id,
-        );
-
-        return buildWorkspace(latestDocument);
-      }
-
-      if (result.ok) {
-        repository.markRenderSuccess(savedDocument.id, result.html);
-      } else {
-        repository.markRenderError(savedDocument.id, result.error);
-      }
-
-      const latestDocument = assertDocument(
-        repository.getDocument(savedDocument.id),
-        savedDocument.id,
-      );
-
-      return buildWorkspace(latestDocument);
+    async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
+      return repository.getRenderJob(jobId);
     },
   };
 }

@@ -1,15 +1,25 @@
-import crypto from "node:crypto";
+// examples/*.qmd 를 Postgres documents 테이블에 시드(slug 기준 upsert).
+// 사용: SEED_USER_EMAIL=user@example.com DATABASE_URL=... node scripts/seed-examples.mjs
+// SEED_USER_EMAIL: 이 이메일의 사용자(users 테이블)를 owner로 사용합니다.
+//   사용자가 없으면 에러로 종료합니다.
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import postgres from "postgres";
 
 const ROOT = process.cwd();
-const DB_PATH =
-  process.env.QUARTO_STUDIO_DB_PATH ?? "./data/quarto-studio.db";
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("DATABASE_URL 환경변수가 필요합니다.");
+  process.exit(1);
+}
+const SEED_USER_EMAIL = process.env.SEED_USER_EMAIL;
+if (!SEED_USER_EMAIL) {
+  console.error("SEED_USER_EMAIL 환경변수가 필요합니다.");
+  process.exit(1);
+}
 const EXAMPLES_DIR = path.join(ROOT, "examples");
 
-// Python/R/Julia 청크는 서버 실행이 필요하므로 execute_code = 1,
-// Markdown/Observable JS 는 0.
+// Python/R/Julia 청크는 서버 실행이 필요하므로 execute_code=true, Markdown/OJS는 false.
 const EXECUTABLE_LANGS = new Set(["python", "r", "julia"]);
 
 function extractTitle(content, fallback) {
@@ -23,74 +33,51 @@ function langToken(fileName) {
   return parts[1] ?? "";
 }
 
-const db = new Database(path.resolve(ROOT, DB_PATH));
-db.pragma("journal_mode = WAL");
+const sql = postgres(DATABASE_URL, { onnotice: () => {} });
 
-db.exec(`
-  create table if not exists documents (
-    id text primary key,
-    title text not null,
-    slug text not null unique,
-    content text not null,
-    execute_code integer not null default 0,
-    render_status text not null default 'idle',
-    rendered_html text,
-    render_error text,
-    created_at text not null,
-    updated_at text not null,
-    rendered_at text
-  );
-`);
+const userRows = await sql`
+  SELECT id FROM users WHERE email = ${SEED_USER_EMAIL}
+`;
+if (userRows.length === 0) {
+  console.error(`사용자를 찾을 수 없습니다: ${SEED_USER_EMAIL}`);
+  await sql.end();
+  process.exit(1);
+}
+const ownerId = userRows[0].id;
 
 const files = fs
   .readdirSync(EXAMPLES_DIR)
   .filter((name) => name.endsWith(".qmd"))
   .sort();
 
-const deleteBySlug = db.prepare("delete from documents where slug = ?");
-const insert = db.prepare(`
-  insert into documents (
-    id, title, slug, content, execute_code, render_status,
-    rendered_html, render_error, created_at, updated_at, rendered_at
-  ) values (?, ?, ?, ?, ?, 'idle', null, null, ?, ?, null)
-`);
-
-const seedAll = db.transaction((entries) => {
-  for (const entry of entries) {
-    deleteBySlug.run(entry.slug); // 재실행 시 갱신(upsert) 효과
-    insert.run(
-      entry.id,
-      entry.title,
-      entry.slug,
-      entry.content,
-      entry.executeCode ? 1 : 0,
-      entry.timestamp,
-      entry.timestamp
-    );
-  }
-});
-
-const now = new Date().toISOString();
 const entries = files.map((fileName) => {
   const content = fs.readFileSync(path.join(EXAMPLES_DIR, fileName), "utf8");
   const slug = fileName.replace(/\.qmd$/, "");
   return {
-    id: crypto.randomUUID(),
     slug,
     title: extractTitle(content, slug),
     content,
     executeCode: EXECUTABLE_LANGS.has(langToken(fileName)),
-    timestamp: now
   };
 });
 
-seedAll(entries);
+for (const entry of entries) {
+  await sql`
+    insert into documents (title, slug, content, execute_code, owner_id)
+    values (${entry.title}, ${entry.slug}, ${entry.content}, ${entry.executeCode}, ${ownerId})
+    on conflict (owner_id, slug) do update
+      set title = excluded.title,
+          content = excluded.content,
+          execute_code = excluded.execute_code,
+          updated_at = now()
+  `;
+}
 
-console.log(`Seeded ${entries.length} example documents into ${DB_PATH}`);
+console.log(`Seeded ${entries.length} example documents for ${SEED_USER_EMAIL} (owner_id=${ownerId})`);
 for (const entry of entries) {
   console.log(
-    `  - ${entry.slug.padEnd(28)} execute_code=${entry.executeCode ? 1 : 0}  "${entry.title}"`
+    `  - ${entry.slug.padEnd(28)} execute_code=${entry.executeCode}  "${entry.title}"`,
   );
 }
 
-db.close();
+await sql.end();

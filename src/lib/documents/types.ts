@@ -7,7 +7,7 @@ export type DocumentRecord = {
   content: string;
   executeCode: boolean;
   renderStatus: RenderStatus;
-  renderedHtml: string | null;
+  latestArtifactId: string | null;
   renderError: string | null;
   createdAt: string;
   updatedAt: string;
@@ -46,4 +46,14 @@ export type RenameDocumentInput = {
 export type DeleteDocumentInput = {
   id: string;
   activeDocumentId: string;
+};
+
+export type RenderJobRecord = {
+  id: string;
+  documentId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "timed_out";
+  log: string | null;
+  artifactId: string | null;
+  createdAt: string;
+  finishedAt: string | null;
 };

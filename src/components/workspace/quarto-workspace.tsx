@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertCircle, Database, Server } from "lucide-react";
 import { normalizeSlug } from "@/lib/documents/slug";
-import type { SaveDocumentInput } from "@/lib/documents/types";
+import type { RenderJobRecord, SaveDocumentInput } from "@/lib/documents/types";
+import { logoutAction } from "@/lib/auth/actions";
 import { DocumentSidebar } from "./document-sidebar";
 import { EditorPane } from "./editor-pane";
 import { PreviewPane } from "./preview-pane";
 import type {
   CreateDocumentAction,
   DeleteDocumentAction,
+  RenderDocumentAction,
   RenameDocumentAction,
   SelectDocumentAction,
   WorkspaceAction,
@@ -19,11 +21,13 @@ import type {
 type QuartoWorkspaceProps = {
   initialWorkspace: WorkspaceState;
   saveDocument: WorkspaceAction;
-  renderDocument: WorkspaceAction;
+  renderDocument: RenderDocumentAction;
   selectDocument: SelectDocumentAction;
   createDocument: CreateDocumentAction;
   renameDocument: RenameDocumentAction;
   deleteDocument: DeleteDocumentAction;
+  getRenderJob: (jobId: string) => Promise<RenderJobRecord | null>;
+  user: { id: string; email: string; name: string | null };
 };
 
 export function QuartoWorkspace({
@@ -33,12 +37,17 @@ export function QuartoWorkspace({
   selectDocument,
   createDocument,
   renameDocument,
-  deleteDocument
+  deleteDocument,
+  getRenderJob,
+  user
 }: QuartoWorkspaceProps) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [draft, setDraft] = useState(initialWorkspace.activeDocument);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingDocumentIdRef = useRef<string | null>(null);
 
   const actionInput = useMemo<SaveDocumentInput>(
     () => ({
@@ -70,6 +79,94 @@ export function QuartoWorkspace({
     });
   };
 
+  const stopPolling = useCallback(() => {
+    setPollingJobId(null);
+    setIsPolling(false);
+    pollingDocumentIdRef.current = null;
+  }, []);
+
+  const handleRender = () => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        const { workspace: nextWorkspace, jobId } = await renderDocument(actionInput);
+        applyWorkspace(nextWorkspace);
+        setPollingJobId(jobId);
+        setIsPolling(true);
+        pollingDocumentIdRef.current = actionInput.id;
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (!pollingJobId || !isPolling) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const job = await getRenderJob(pollingJobId);
+        if (!job) {
+          stopPolling();
+          return;
+        }
+
+        if (job.status === "succeeded") {
+          // 폴링 중 문서 전환이 없었을 때만 workspace 업데이트
+          if (pollingDocumentIdRef.current === draft.id) {
+            setWorkspace((prev) => {
+              const updated: typeof prev = {
+                ...prev,
+                activeDocument: {
+                  ...prev.activeDocument,
+                  renderStatus: "success",
+                  latestArtifactId: job.artifactId,
+                  renderError: null,
+                  renderedAt: job.finishedAt
+                }
+              };
+              return updated;
+            });
+            setDraft((prev) => ({
+              ...prev,
+              renderStatus: "success",
+              latestArtifactId: job.artifactId,
+              renderError: null,
+              renderedAt: job.finishedAt
+            }));
+          }
+          stopPolling();
+        } else if (job.status === "failed" || job.status === "timed_out") {
+          if (pollingDocumentIdRef.current === draft.id) {
+            setWorkspace((prev) => ({
+              ...prev,
+              activeDocument: {
+                ...prev.activeDocument,
+                renderStatus: "error",
+                renderError: job.log,
+                renderedAt: null
+              }
+            }));
+            setDraft((prev) => ({
+              ...prev,
+              renderStatus: "error",
+              renderError: job.log,
+              renderedAt: null
+            }));
+          }
+          stopPolling();
+        }
+        // queued/running: 계속 폴링
+      } catch {
+        // 네트워크 에러 등: 조용히 다음 interval 대기
+      }
+    }, 1500);
+
+    return () => clearInterval(intervalId);
+  }, [pollingJobId, isPolling, getRenderJob, draft.id, stopPolling]);
+
+  const isRendering = draft.renderStatus === "rendering" || isPolling;
+
   const hasDraftChanges =
     draft.title !== workspace.activeDocument.title ||
     draft.slug !== workspace.activeDocument.slug ||
@@ -86,7 +183,7 @@ export function QuartoWorkspace({
     if (documentId === draft.id) {
       return;
     }
-
+    stopPolling();
     setActionError(null);
     startTransition(async () => {
       try {
@@ -159,13 +256,21 @@ export function QuartoWorkspace({
         <div className="topbar-status" aria-label="작업 환경">
           <span className="status-pill">
             <Database size={14} aria-hidden="true" />
-            SQLite
+            Postgres
           </span>
           <span className="status-pill">
             <Server size={14} aria-hidden="true" />
             Node 24
           </span>
           <span className="status-pill">QMD</span>
+          <span className="status-pill" style={{ gap: 6 }}>
+            {user.name ?? user.email}
+          </span>
+          <form action={logoutAction}>
+            <button type="submit" className="ghost-button" style={{ fontSize: 13, height: 28, padding: "0 10px" }}>
+              로그아웃
+            </button>
+          </form>
         </div>
       </header>
       <div className="workspace-grid">
@@ -197,12 +302,13 @@ export function QuartoWorkspace({
             setDraft((current) => ({ ...current, executeCode }))
           }
           onSave={() => runWorkspaceAction(saveDocument)}
-          onRender={() => runWorkspaceAction(renderDocument)}
+          onRender={handleRender}
         />
         <PreviewPane
           document={draft}
           isBusy={isPending}
-          onRender={() => runWorkspaceAction(renderDocument)}
+          isRendering={isRendering}
+          onRender={handleRender}
         />
       </div>
       {actionError ? (

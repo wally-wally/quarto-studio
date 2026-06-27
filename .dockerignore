@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.gitignore
+.venv
+docker/
+data/
+.superpowers/
+.playwright-mcp/
+docs/
+images/
+examples/
+phase3-workspace.png
+*.md
+QUICKSTART.md
+README.md

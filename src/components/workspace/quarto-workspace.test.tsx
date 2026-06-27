@@ -1,8 +1,12 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuartoWorkspace } from "./quarto-workspace";
 import type { WorkspaceState } from "./types";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const workspace: WorkspaceState = {
   documents: [
@@ -32,7 +36,7 @@ const workspace: WorkspaceState = {
     content: "# Getting Started",
     executeCode: false,
     renderStatus: "success",
-    renderedHtml: "<h1>Getting Started</h1>",
+    latestArtifactId: "artifact-1",
     renderError: null,
     createdAt: "2026-06-24T00:00:00.000Z",
     updatedAt: "2026-06-24T00:00:00.000Z",
@@ -46,11 +50,13 @@ const renderWorkspace = (
   const defaultProps = {
     initialWorkspace: workspace,
     saveDocument: vi.fn(async () => workspace),
-    renderDocument: vi.fn(async () => workspace),
+    renderDocument: vi.fn(async () => ({ workspace, jobId: "job-1" })),
     selectDocument: vi.fn(async () => workspace),
     createDocument: vi.fn(async () => workspace),
     renameDocument: vi.fn(async () => workspace),
-    deleteDocument: vi.fn(async () => workspace)
+    deleteDocument: vi.fn(async () => workspace),
+    getRenderJob: vi.fn(async () => null),
+    user: { id: "user-1", email: "test@example.com", name: null }
   };
 
   return render(<QuartoWorkspace {...defaultProps} {...props} />);
@@ -118,7 +124,7 @@ describe("QuartoWorkspace", () => {
 
   it("제목과 QMD를 수정한 뒤 렌더하면 draft 내용으로 렌더 액션을 호출한다", async () => {
     const user = userEvent.setup();
-    const renderDocument = vi.fn(async () => workspace);
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
 
     renderWorkspace({ renderDocument });
 
@@ -138,7 +144,7 @@ describe("QuartoWorkspace", () => {
 
   it("저장 또는 렌더링이 진행 중이면 draft 입력과 문서 이동을 잠가 최신 로컬 수정을 막는다", async () => {
     const user = userEvent.setup();
-    const renderDeferred = createDeferred<WorkspaceState>();
+    const renderDeferred = createDeferred<{ workspace: WorkspaceState; jobId: string }>();
     const renderDocument = vi.fn(() => renderDeferred.promise);
 
     renderWorkspace({ renderDocument });
@@ -154,7 +160,7 @@ describe("QuartoWorkspace", () => {
       screen.getByRole("button", { name: "미리보기 다시 렌더" })
     ).toBeDisabled();
 
-    renderDeferred.resolve(workspace);
+    renderDeferred.resolve({ workspace, jobId: "job-1" });
   });
 
   it("저장 액션이 실패하면 한국어 안내와 오류 메시지를 alert로 보여준다", async () => {
@@ -202,7 +208,7 @@ describe("QuartoWorkspace", () => {
         content: "# 운영 리포트",
         executeCode: true,
         renderStatus: "idle",
-        renderedHtml: "",
+        latestArtifactId: null,
         renderError: null,
         createdAt: "2026-06-24T01:00:00.000Z",
         updatedAt: "2026-06-24T01:00:00.000Z",
@@ -251,7 +257,7 @@ describe("QuartoWorkspace", () => {
         content: "# 운영 리포트",
         executeCode: true,
         renderStatus: "idle",
-        renderedHtml: "",
+        latestArtifactId: null,
         renderError: null,
         createdAt: "2026-06-24T01:00:00.000Z",
         updatedAt: "2026-06-24T01:00:00.000Z",
@@ -333,5 +339,96 @@ describe("QuartoWorkspace", () => {
     expect(screen.getByLabelText("문서 검색 준비 중")).toHaveAttribute(
       "readonly"
     );
+  });
+
+  it("렌더 후 폴링으로 succeeded 상태가 되면 프리뷰 HTML이 갱신된다", async () => {
+    vi.useFakeTimers();
+
+    const succeededJob = {
+      id: "job-1",
+      documentId: "doc-1",
+      status: "succeeded" as const,
+      log: null,
+      artifactId: "artifact-new",
+      createdAt: "2026-06-24T00:00:00.000Z",
+      finishedAt: "2026-06-24T00:01:00.000Z"
+    };
+
+    const getRenderJob = vi.fn()
+      .mockResolvedValueOnce({ ...succeededJob, status: "running" as const, artifactId: null })
+      .mockResolvedValueOnce(succeededJob);
+
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
+
+    renderWorkspace({ renderDocument, getRenderJob });
+
+    // 렌더 버튼 클릭 — startTransition 내 async 완료까지 act로 flush
+    await act(async () => {
+      screen.getByRole("button", { name: "렌더" }).click();
+    });
+
+    // 첫 번째 폴링 (running → 계속 폴링)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(1);
+
+    // 두 번째 폴링 (succeeded → 중단)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+
+    // 프리뷰 iframe이 새 artifact URL로 갱신됐는지 확인 (real timers 복원 후)
+    await waitFor(() => {
+      expect(screen.getByTitle("Rendered preview")).toHaveAttribute(
+        "src",
+        "/preview/artifact-new"
+      );
+    });
+  });
+
+  it("문서 전환 시 진행 중인 폴링이 정리된다", async () => {
+    vi.useFakeTimers();
+
+    // 폴링이 계속 running을 반환하는 mock
+    const getRenderJob = vi.fn().mockResolvedValue({
+      id: "job-1",
+      documentId: "doc-1",
+      status: "running" as const,
+      log: null,
+      artifactId: null,
+      createdAt: "2026-06-24T00:00:00.000Z",
+      finishedAt: null
+    });
+
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
+    const selectDocument = vi.fn(async () => workspace);
+
+    renderWorkspace({ renderDocument, getRenderJob, selectDocument });
+
+    // 렌더 버튼 클릭
+    await act(async () => {
+      screen.getByRole("button", { name: "렌더" }).click();
+    });
+
+    // 폴링 1회
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(1);
+
+    // 문서 전환 → stopPolling 호출
+    await act(async () => {
+      screen.getByRole("button", { name: "운영 리포트 열기" }).click();
+    });
+
+    // 추가로 3000ms 경과해도 폴링이 더 이상 호출되지 않음
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(getRenderJob).toHaveBeenCalledTimes(1); // 여전히 1회
   });
 });
