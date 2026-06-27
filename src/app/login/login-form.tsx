@@ -36,7 +36,6 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
-  const [agreed, setAgreed] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,7 +92,6 @@ export function LoginForm() {
     setEmail("");
     setPassword("");
     setPassword2("");
-    setAgreed(false);
   }
 
   const strength = isRegister && password ? passwordStrength(password) : null;
@@ -269,32 +267,10 @@ export function LoginForm() {
               </div>
             )}
 
-            {isRegister && (
-              <div className="auth-terms">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  disabled={loading}
-                />
-                <label htmlFor="terms">
-                  <a href="#" className="auth-terms-link">
-                    이용약관
-                  </a>{" "}
-                  및{" "}
-                  <a href="#" className="auth-terms-link">
-                    개인정보처리방침
-                  </a>
-                  에 동의합니다.
-                </label>
-              </div>
-            )}
-
             <button
               type="submit"
               className={`auth-submit ${loading ? "loading" : ""}`}
-              disabled={loading || (isRegister && !agreed)}
+              disabled={loading}
             >
               {loading ? "처리 중..." : isRegister ? "회원가입" : "로그인"}
             </button>

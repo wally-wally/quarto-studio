@@ -1173,43 +1173,6 @@ input {
   color: #94a3b8;
 }
 
-/* Terms */
-.auth-terms {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-bottom: 20px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #475569;
-}
-
-.auth-terms input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin-top: 2px;
-  flex-shrink: 0;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.auth-terms label {
-  margin: 0;
-  font-weight: 400;
-  font-size: 13px;
-  color: #475569;
-}
-
-.auth-terms-link {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.auth-terms-link:hover {
-  text-decoration: underline;
-}
-
 /* Submit */
 .auth-submit {
   width: 100%;
