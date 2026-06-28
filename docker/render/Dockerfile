@@ -73,10 +73,16 @@ COPY conf/matplotlibrc /opt/mpl/matplotlibrc
 COPY conf/Rprofile.site /etc/R/Rprofile.site
 COPY conf/fonts-local.conf /etc/fonts/local.conf
 COPY conf/startup.jl /opt/julia-depot/config/startup.jl
+# 폰트 캐시 갱신 후, matplotlib 폰트 캐시를 (모든 한글 폰트 설치 후) 미리 구워 이미지에 베이크한다.
+# 안 구우면 매 렌더가 일회용 컨테이너에서 캐시를 처음부터 재빌드하다 간헐적으로 NanumGothic을
+# 누락해 DejaVu Sans로 폴백(한글 글리프 깨짐 + 경고 대량)했다. 빌드 시 한 번 굽고
+# NanumGothic이 캐시에 등록됐는지 단언해, 폴백을 결정적으로 제거한다(+ 렌더 시 재빌드 없음).
 RUN fc-cache -f \
     && rm -rf /opt/mpl/fontlist-*.json \
     && fc-list | grep -i nanum \
-    && test -f /usr/share/fonts/truetype/noto-kr/NotoSansKR.ttf
+    && test -f /usr/share/fonts/truetype/noto-kr/NotoSansKR.ttf \
+    && python3 -c "import matplotlib.pyplot as plt; fig, ax = plt.subplots(); ax.set_title('한글'); fig.canvas.draw()" \
+    && python3 -c "import glob, json; from matplotlib.font_manager import findfont, FontProperties; f = findfont(FontProperties(family='NanumGothic')); assert f.endswith('NanumGothic.ttf'), f; c = glob.glob('/opt/mpl/fontlist-*.json')[0]; names = {e['name'] for e in json.load(open(c))['ttflist']}; assert 'NanumGothic' in names, 'NanumGothic missing from baked mpl cache'; print('baked mpl font cache OK:', c, len(names), 'fonts')"
 
 # UTF-8 로케일: R의 멀티바이트(한글) 그래픽 렌더에 필수.
 # 기본 POSIX 로케일에서는 한글이 두부/유니코드 escape로 깨진다.
