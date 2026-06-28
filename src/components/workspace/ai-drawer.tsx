@@ -34,6 +34,14 @@ function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+// 파일별 용량: 1MB 미만은 KB, 이상은 MB(소수 1자리)로 표기한다.
+function formatSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)}KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: AiDrawerProps) {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -193,7 +201,7 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
               {files.map((file, index) => (
                 <li className="ai-chip" key={`${file.name}-${file.size}-${index}`}>
                   <span className="ai-chip-name">{file.name}</span>
-                  <span className="ai-chip-size">{formatMB(file.size)}MB</span>
+                  <span className="ai-chip-size">{formatSize(file.size)}</span>
                   <button
                     type="button"
                     aria-label={`${file.name} 제거`}
