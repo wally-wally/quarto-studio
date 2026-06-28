@@ -434,6 +434,25 @@ describe("QuartoWorkspace", () => {
 
   it("다른 문서로 이동하면 AI 드로어가 닫히고 메시지가 초기화된다", async () => {
     const user = userEvent.setup();
+    window.localStorage.setItem(
+      "quarto-studio:ai-settings",
+      JSON.stringify({
+        provider: "anthropic",
+        anthropic: { apiKey: "sk", model: "claude-sonnet-4-6" },
+        openai: { apiKey: "", model: "" },
+      }),
+    );
+    // /api/ai/chat 스트림 응답 mock (delta + done — tool 프레임은 이 테스트에 불필요)
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        ndjson([
+          { type: "delta", text: "네, 도와드릴게요." },
+          { type: "done", usage: { inputTokens: 1, outputTokens: 1 }, provider: "anthropic", model: "claude-sonnet-4-6" },
+        ]),
+      ),
+    );
+
     const selectedWorkspace: WorkspaceState = {
       ...workspace,
       activeDocument: {
@@ -452,9 +471,11 @@ describe("QuartoWorkspace", () => {
     };
     renderWorkspace({ selectDocument: vi.fn(async () => selectedWorkspace) });
 
-    // 드로어 열기
+    // 드로어 열기 → 메시지 전송 → 보낸 메시지가 채팅에 보인다
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
-    expect(screen.getByLabelText("AI 메시지 입력")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("AI 메시지 입력"), "초기화 테스트 메시지");
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("초기화 테스트 메시지")).toBeInTheDocument();
 
     // 다른 문서로 이동 → 드로어가 닫힌다(메시지 입력창 사라짐)
     await user.click(screen.getByRole("button", { name: "운영 리포트 열기" }));
@@ -462,9 +483,12 @@ describe("QuartoWorkspace", () => {
       expect(screen.queryByLabelText("AI 메시지 입력")).not.toBeInTheDocument();
     });
 
-    // 다시 열면 메시지가 비어 있다(key 리마운트 + resetChat으로 초기화)
+    // 다시 열면 채팅이 비어 있다(resetChat으로 초기화):
+    // 보낸 메시지는 사라지고 빈 상태 안내가 다시 보인다.
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
     expect(screen.getByLabelText("AI 메시지 입력")).toBeInTheDocument();
+    expect(screen.queryByText("초기화 테스트 메시지")).toBeNull();
+    expect(screen.getByText(/만들고 싶은/)).toBeTruthy();
   });
 
   it("AI가 편집한 뒤 다른 문서로 이동하면 확인을 거친다(취소=머무름, 확인=이동)", async () => {
