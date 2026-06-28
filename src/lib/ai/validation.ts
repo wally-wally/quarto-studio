@@ -1,6 +1,6 @@
 export const MAX_PROMPT_LENGTH = 20_000;
 export const MAX_ATTACHMENTS = 10;
-export const MAX_TOTAL_BYTES = 5 * 1024 * 1024;
+export const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
 
 export const ALLOWED_EXTENSIONS = [
   "png", "jpg", "jpeg", "gif", "bmp",
@@ -43,7 +43,7 @@ export function validateAttachments(files: AttachmentMeta[]): ValidationResult {
   }
   const total = files.reduce((sum, file) => sum + file.size, 0);
   if (total > MAX_TOTAL_BYTES) {
-    return { ok: false, error: "첨부파일 총합은 최대 5MB까지 가능합니다." };
+    return { ok: false, error: `첨부파일 총합은 최대 ${MAX_TOTAL_BYTES / (1024 * 1024)}MB까지 가능합니다.` };
   }
   return { ok: true };
 }

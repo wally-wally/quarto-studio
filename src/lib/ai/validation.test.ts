@@ -42,7 +42,7 @@ describe("validateAttachments", () => {
   it("허용 외 확장자를 거부한다", () => {
     expect(validateAttachments([{ name: "a.exe", size: 1 }]).ok).toBe(false);
   });
-  it("총 5MB 초과를 거부한다", () => {
+  it("총합 상한(MAX_TOTAL_BYTES) 초과를 거부한다", () => {
     expect(validateAttachments([{ name: "a.csv", size: MAX_TOTAL_BYTES + 1 }]).ok).toBe(false);
   });
   it("정상 입력을 통과시킨다", () => {

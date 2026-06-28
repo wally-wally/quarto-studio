@@ -7,7 +7,7 @@ export async function extractTextViaService(bytes: Uint8Array, filename: string)
   const baseUrl = process.env.CONVERT_SERVICE_URL ?? DEFAULT_URL;
   const timeoutMs = Number(process.env.CONVERT_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
   // 일반 ArrayBuffer로 복사한다: Uint8Array<ArrayBufferLike>는 BlobPart로 바로 받지 못한다
-  // (SharedArrayBuffer 모호성). 첨부 상한이 5MB라 복사 비용은 무시할 만하다.
+  // (SharedArrayBuffer 모호성). 첨부 상한이 작아(총합 10MB) 복사 비용은 무시할 만하다.
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   const form = new FormData();
