@@ -76,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
     model: resolveModel(provider, apiKey, model),
     system: buildSystemPrompt({ hasAttachments: parts.length > 0 }),
     messages: [{ role: "user", content }],
-    providerOptions: buildProviderOptions(provider),
+    providerOptions: buildProviderOptions(provider, model),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     abortSignal: req.signal,
     onError: ({ error }) => {
