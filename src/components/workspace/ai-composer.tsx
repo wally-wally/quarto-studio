@@ -34,14 +34,14 @@ export function AiComposer({
 }) {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; settings: boolean } | null>(null);
 
   function addFiles(selected: FileList | null) {
     if (!selected) return;
     const next = [...files, ...Array.from(selected)];
     const check = validateAttachments(next.map((f) => ({ name: f.name, size: f.size })));
     if (!check.ok) {
-      setError(check.error);
+      setError({ text: check.error, settings: false });
       return;
     }
     setError(null);
@@ -55,17 +55,17 @@ export function AiComposer({
   function submit() {
     const creds = getActiveCredentials(loadSettings());
     if (!creds.apiKey) {
-      setError("설정에서 API 키를 입력하세요.");
+      setError({ text: "설정에서 API 키를 입력하세요.", settings: true });
       return;
     }
     const promptCheck = validatePrompt(prompt);
     if (!promptCheck.ok) {
-      setError(promptCheck.error);
+      setError({ text: promptCheck.error, settings: false });
       return;
     }
     const attachmentCheck = validateAttachments(files.map((f) => ({ name: f.name, size: f.size })));
     if (!attachmentCheck.ok) {
-      setError(attachmentCheck.error);
+      setError({ text: attachmentCheck.error, settings: false });
       return;
     }
     setError(null);
@@ -97,10 +97,12 @@ export function AiComposer({
       )}
       {error && (
         <p className="ai-error" role="alert">
-          {error}{" "}
-          <button type="button" className="ai-link" onClick={onOpenSettings}>
-            설정 열기
-          </button>
+          {error.text}{" "}
+          {error.settings && (
+            <button type="button" className="ai-link" onClick={onOpenSettings}>
+              설정 열기
+            </button>
+          )}
         </p>
       )}
       <div className="ai-composer-row">

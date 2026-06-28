@@ -40,4 +40,12 @@ describe("AiMessageList", () => {
     expect(screen.getByText(/문서 작성됨/)).toBeTruthy();
     expect(screen.getByText(/일부 편집 미적용/)).toBeTruthy();
   });
+
+  it("usage가 있으면 턴별 사용량을 보여준다", () => {
+    const messages: ChatMessage[] = [
+      { id: "2", role: "assistant", text: "답", usage: { inputTokens: 100, outputTokens: 50, costUsd: 0.002, elapsedMs: 1200 } },
+    ];
+    render(<AiMessageList messages={messages} generating={false} />);
+    expect(screen.getByText(/토큰/)).toBeTruthy();
+  });
 });
