@@ -91,14 +91,14 @@ export function EditorPane({
         </div>
       </div>
       <CodeEditor
-        key={documentId}
+        key={`editor-${documentId}`}
         value={content}
         onChange={onContentChange}
         readOnly={isBusy}
         onCreateEditor={onEditorReady}
       />
       <AiDrawer
-        key={documentId}
+        key={`drawer-${documentId}`}
         open={aiDrawerOpen}
         onToggle={onToggleAiDrawer}
         isBusy={isBusy}
