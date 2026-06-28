@@ -33,6 +33,31 @@ describe("PreviewPane 렌더 중단 버튼", () => {
   });
 });
 
+describe("PreviewPane 전체 화면 버튼", () => {
+  const baseProps = {
+    isBusy: false,
+    isRendering: false,
+    onRender: vi.fn(),
+    onCancelRender: vi.fn(),
+    onDownload: vi.fn(),
+  };
+
+  it("렌더 결과가 있으면 전체 화면 버튼을 보여주고 클릭 시 iframe.requestFullscreen을 호출한다", () => {
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    // jsdom은 requestFullscreen 미구현 — iframe 프로토타입에 주입한다.
+    HTMLIFrameElement.prototype.requestFullscreen = requestFullscreen;
+
+    render(<PreviewPane {...baseProps} document={{ ...baseDoc, latestArtifactId: "artifact-1" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "미리보기 전체 화면" }));
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+  });
+
+  it("렌더 결과가 없으면 전체 화면 버튼이 없다", () => {
+    render(<PreviewPane {...baseProps} document={baseDoc} />);
+    expect(screen.queryByRole("button", { name: "미리보기 전체 화면" })).toBeNull();
+  });
+});
+
 describe("formatRenderedAt", () => {
   it("UTC ISO를 'YYYY-MM-DD HH:mm:ss'로 포맷한다", () => {
     expect(formatRenderedAt("2026-06-27T12:51:28.276Z")).toBe("2026-06-27 12:51:28");
