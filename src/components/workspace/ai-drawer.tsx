@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import { Paperclip, Sparkles, X } from "lucide-react";
-import { getActiveCredentials, loadSettings } from "@/lib/ai/settings";
+import { getActiveCredentials, loadSettings, type AiProvider } from "@/lib/ai/settings";
+import { estimateCostUsd, formatUsd, formatDuration } from "@/lib/ai/pricing";
 import {
   validatePrompt,
   validateAttachments,
@@ -11,6 +12,17 @@ import {
   MAX_TOTAL_BYTES,
   ALLOWED_EXTENSIONS,
 } from "@/lib/ai/validation";
+
+type GenerationResult = {
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number | null;
+  elapsedMs: number;
+};
+
+type StreamFrame =
+  | { type: "delta"; text: string }
+  | { type: "done"; usage: { inputTokens: number; outputTokens: number }; provider?: AiProvider; model?: string };
 
 export type AiGenerationHandlers = {
   onStart: () => void;
@@ -48,6 +60,7 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
   const [generating, setGenerating] = useState(false);
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<GenerationResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
@@ -87,11 +100,13 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
 
     setError(null);
     setFinished(false);
+    setLastResult(null);
     setGenerating(true);
     handlers.onStart();
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const startedAt = performance.now();
 
     try {
       const fd = new FormData();
@@ -117,15 +132,49 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = "";
       let accumulated = "";
+      const collected: {
+        usage: { inputTokens: number; outputTokens: number } | null;
+        provider: AiProvider;
+        model: string;
+      } = { usage: null, provider: creds.provider, model: creds.model };
+
+      const handleFrame = (line: string) => {
+        if (!line) return;
+        const frame = JSON.parse(line) as StreamFrame;
+        if (frame.type === "delta") {
+          accumulated += frame.text;
+          handlers.onChunk(accumulated);
+        } else if (frame.type === "done") {
+          collected.usage = frame.usage;
+          if (frame.provider) collected.provider = frame.provider;
+          if (frame.model) collected.model = frame.model;
+        }
+      };
+
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        handlers.onChunk(accumulated);
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          handleFrame(buffer.slice(0, nl));
+          buffer = buffer.slice(nl + 1);
+        }
       }
+      handleFrame(buffer.trim()); // 개행 없는 잔여 라인 방어
+
       handlers.onFinish();
       setFinished(true);
+      if (collected.usage) {
+        setLastResult({
+          inputTokens: collected.usage.inputTokens,
+          outputTokens: collected.usage.outputTokens,
+          costUsd: estimateCostUsd(collected.provider, collected.model, collected.usage),
+          elapsedMs: performance.now() - startedAt,
+        });
+      }
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
         handlers.onFinish();
@@ -147,6 +196,7 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
   function handleRevert() {
     handlers.onRevert();
     setFinished(false);
+    setLastResult(null);
   }
 
   return (
@@ -242,6 +292,30 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
               </button>
             )}
           </div>
+
+          {lastResult && (
+            <dl className="ai-usage" aria-label="생성 사용량">
+              <div>
+                <dt>토큰</dt>
+                <dd>
+                  {(lastResult.inputTokens + lastResult.outputTokens).toLocaleString()}
+                  <span className="ai-usage-sub">
+                    {" "}
+                    (입력 {lastResult.inputTokens.toLocaleString()} · 출력{" "}
+                    {lastResult.outputTokens.toLocaleString()})
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>비용(약)</dt>
+                <dd>{lastResult.costUsd === null ? "—" : formatUsd(lastResult.costUsd)}</dd>
+              </div>
+              <div>
+                <dt>소요 시간</dt>
+                <dd>{formatDuration(lastResult.elapsedMs)}</dd>
+              </div>
+            </dl>
+          )}
         </div>
       )}
     </div>

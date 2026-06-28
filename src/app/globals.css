@@ -1357,6 +1357,22 @@ input {
 .ai-actions { display: flex; gap: 8px; }
 .ai-link { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
 
+/* 생성 사용량 요약(토큰·비용·시간) */
+.ai-usage {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-deep);
+  font-size: 12px;
+}
+.ai-usage > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.ai-usage dt { color: var(--fg-subtle); }
+.ai-usage dd { margin: 0; color: var(--fg); font-variant-numeric: tabular-nums; text-align: right; }
+.ai-usage-sub { color: var(--fg-subtle); }
+
 /* ── 설정 모달 ── */
 .modal-backdrop {
   position: fixed;
