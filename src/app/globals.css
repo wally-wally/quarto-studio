@@ -617,12 +617,24 @@ input {
   font-size: 13px;
   font-weight: 600;
   color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pane-header p {
   margin: 1px 0 0;
   color: var(--fg-subtle);
   font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 미리보기 패널 제목 묶음 — flex 자식이 콘텐츠보다 좁아질 수 있게 해
+   제목/상태 텍스트가 글자 단위로 세로 줄바꿈되지 않고 말줄임 처리되게 한다. */
+.pane-title {
+  min-width: 0;
 }
 
 .title-fields {
@@ -667,6 +679,7 @@ input {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .rendering-indicator {
