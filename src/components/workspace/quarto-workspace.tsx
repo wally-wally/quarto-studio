@@ -12,6 +12,7 @@ import { DocumentSidebar } from "./document-sidebar";
 import { EditorPane } from "./editor-pane";
 import { PreviewPane } from "./preview-pane";
 import type {
+  CancelRenderAction,
   CreateDocumentAction,
   DeleteDocumentAction,
   RenderDocumentAction,
@@ -30,6 +31,7 @@ type QuartoWorkspaceProps = {
   renameDocument: RenameDocumentAction;
   deleteDocument: DeleteDocumentAction;
   getRenderJob: (jobId: string) => Promise<RenderJobRecord | null>;
+  cancelRender: CancelRenderAction;
   user: { id: string; email: string; name: string | null };
 };
 
@@ -42,6 +44,7 @@ export function QuartoWorkspace({
   renameDocument,
   deleteDocument,
   getRenderJob,
+  cancelRender,
   user
 }: QuartoWorkspaceProps) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
@@ -98,6 +101,20 @@ export function QuartoWorkspace({
         setPollingJobId(jobId);
         setIsPolling(true);
         pollingDocumentIdRef.current = actionInput.id;
+      } catch (error) {
+        setActionError(toActionErrorMessage(error));
+      }
+    });
+  };
+
+  // 렌더 중단: 폴링을 멈추고 그 문서의 queued/running 잡을 canceled로 → 상태가 idle로 복구된다.
+  // 문서 단위라 새로고침 후 stuck('렌더링 중') 상태에서도 동작한다(jobId 불필요).
+  const handleCancelRender = () => {
+    setActionError(null);
+    stopPolling();
+    startTransition(async () => {
+      try {
+        applyWorkspace(await cancelRender(draft.id));
       } catch (error) {
         setActionError(toActionErrorMessage(error));
       }
@@ -366,6 +383,7 @@ export function QuartoWorkspace({
           isBusy={paneBusy}
           isRendering={isRendering}
           onRender={handleRender}
+          onCancelRender={handleCancelRender}
           onDownload={handleDownload}
         />
       </div>

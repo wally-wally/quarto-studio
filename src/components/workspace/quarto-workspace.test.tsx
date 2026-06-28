@@ -77,6 +77,7 @@ const renderWorkspace = (
     renameDocument: vi.fn(async () => workspace),
     deleteDocument: vi.fn(async () => workspace),
     getRenderJob: vi.fn(async () => null),
+    cancelRender: vi.fn(async () => workspace),
     user: { id: "user-1", email: "test@example.com", name: null }
   };
 

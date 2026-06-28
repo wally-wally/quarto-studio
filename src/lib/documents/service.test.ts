@@ -125,6 +125,7 @@ function createMockRepository(initialDocuments: DocumentRecord[]) {
       return { jobId: "job-1" };
     }),
     getRenderJob: vi.fn(async (_jobId: string): Promise<RenderJobRecord | null> => null),
+    cancelDocumentRenders: vi.fn(async (_ownerId: string, _documentId: string) => ({ canceledCount: 0 })),
   };
 }
 
@@ -303,5 +304,15 @@ describe("document service", () => {
 
     expect(repository.getRenderJob).toHaveBeenCalledWith("job-1");
     expect(result).toEqual(mockJob);
+  });
+
+  it("cancelRender는 cancelDocumentRenders를 호출하고 워크스페이스를 반환한다", async () => {
+    const repository = createMockRepository([createDocument()]);
+    const service = createDocumentService({ repository });
+
+    const workspace = await service.cancelRender(TEST_OWNER_ID, "doc-1");
+
+    expect(repository.cancelDocumentRenders).toHaveBeenCalledWith(TEST_OWNER_ID, "doc-1");
+    expect(workspace.activeDocument).toEqual(expect.objectContaining({ id: "doc-1" }));
   });
 });

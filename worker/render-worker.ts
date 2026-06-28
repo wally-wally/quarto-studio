@@ -88,6 +88,8 @@ async function processJob(job: ClaimedJob): Promise<void> {
   // 미설정 시(로컬): os.tmpdir() 하위 임시 경로를 직접 bind-mount.
   const jobDir = path.join(RENDER_WORK_DIR, `qs-render-${job.id}`);
   const containerName = `qs-render-${job.id}`;
+  let canceled = false;
+  let cancelWatcher: ReturnType<typeof setInterval> | undefined;
 
   // 로컬 모드에서는 RENDER_WORK_DIR에 직접 폴더 생성, named volume 모드에서는 이미 마운트됨.
   await fs.mkdir(jobDir, { recursive: true });
@@ -128,7 +130,26 @@ async function processJob(job: ClaimedJob): Promise<void> {
       "quarto", "render", "index.qmd", "--to", "html",
     ];
 
+    // 실행 중 취소 감시: 사용자가 중단하면 잡이 'canceled'로 바뀐다 → 컨테이너를 강제 종료.
+    cancelWatcher = setInterval(() => {
+      sql<{ status: string }[]>`select status from render_jobs where id = ${job.id}`
+        .then((rows) => {
+          if (rows[0]?.status === "canceled" && !canceled) {
+            canceled = true;
+            spawn("docker", ["kill", containerName]);
+          }
+        })
+        .catch(() => {});
+    }, 1500);
+
     const { code, out } = await runDocker(args, TIMEOUT_MS, containerName);
+    clearInterval(cancelWatcher);
+    cancelWatcher = undefined;
+
+    if (canceled) {
+      console.log(`[job ${job.id}] canceled — 컨테이너 종료, 결과 폐기`);
+      return;
+    }
 
     if (code === 0) {
       const html = await fs.readFile(path.join(jobDir, "index.html"), "utf8");
@@ -137,27 +158,34 @@ async function processJob(job: ClaimedJob): Promise<void> {
       const key = `${artifactId}.html`;
       const { sizeBytes } = await artifactStore.putArtifact(key, html);
 
+      let stored = false;
       await sql.begin(async (tx) => {
-        // 1. insert artifact row
+        // 레이스 가드: 렌더 완료 직전에 취소되었으면(status != 'running') 결과를 덮어쓰지 않는다.
+        const updated = await tx<{ id: string }[]>`
+          update render_jobs
+             set status = 'succeeded', artifact_id = ${artifactId}, log = ${out}, finished_at = now()
+           where id = ${job.id} and status = 'running'
+          returning id
+        `;
+        if (updated.length === 0) return;
+        stored = true;
+
         await tx`
           insert into artifacts (id, document_id, job_id, storage_key, size_bytes)
           values (${artifactId}, ${job.document_id}, ${job.id}, ${key}, ${sizeBytes})
         `;
-
-        // 2. update render_jobs (no rendered_html anymore)
-        await tx`
-          update render_jobs
-             set status = 'succeeded', artifact_id = ${artifactId}, log = ${out}, finished_at = now()
-           where id = ${job.id}
-        `;
-
-        // 3. update documents.latest_artifact_id
         await tx`
           update documents
              set latest_artifact_id = ${artifactId}
            where id = ${job.document_id}
         `;
       });
+
+      if (!stored) {
+        await artifactStore.deleteArtifact(key);
+        console.log(`[job ${job.id}] 완료 직전 취소 — 결과 폐기`);
+        return;
+      }
 
       // Retention: keep latest 5 artifacts for this document
       const old = await sql<{ id: string; storage_key: string }[]>`
@@ -177,7 +205,7 @@ async function processJob(job: ClaimedJob): Promise<void> {
       await sql`
         update render_jobs
            set status = ${status}, log = ${out}, finished_at = now()
-         where id = ${job.id}
+         where id = ${job.id} and status = 'running'
       `;
       console.log(`[job ${job.id}] ${status} (exit ${code})`);
     }
@@ -185,10 +213,11 @@ async function processJob(job: ClaimedJob): Promise<void> {
     await sql`
       update render_jobs
          set status = 'failed', log = ${String(error)}, finished_at = now()
-       where id = ${job.id}
+       where id = ${job.id} and status = 'running'
     `;
     console.error(`[job ${job.id}] error`, error);
   } finally {
+    if (cancelWatcher) clearInterval(cancelWatcher);
     await fs.rm(jobDir, { recursive: true, force: true });
   }
 }

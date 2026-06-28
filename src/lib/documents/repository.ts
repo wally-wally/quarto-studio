@@ -93,6 +93,10 @@ function deriveRenderStatus(row: DocumentRow): Pick<DocumentRecord, "renderStatu
       renderedAt: row.job_finished_at ? row.job_finished_at.toISOString() : null
     };
   }
+  if (status === "canceled") {
+    // 중단은 오류가 아니다 — 기존 아티팩트는 유지하고 idle로 되돌린다.
+    return { renderStatus: "idle", latestArtifactId, renderError: null, renderedAt: null };
+  }
   // failed | timed_out
   return { renderStatus: "error", latestArtifactId, renderError: row.job_log, renderedAt: null };
 }
@@ -339,6 +343,20 @@ export function createDocumentRepository(sql: Sql) {
         createdAt: row.created_at.toISOString(),
         finishedAt: row.finished_at ? row.finished_at.toISOString() : null
       };
+    },
+
+    async cancelDocumentRenders(ownerId: string, documentId: string): Promise<{ canceledCount: number }> {
+      // 본인이 요청한 그 문서의 queued/running 잡만 canceled로 표시한다.
+      // 워커가 실행 중인 잡이면 docker kill로 컨테이너를 종료한다(워커가 이 상태를 감시).
+      const rows = await sql<{ id: string }[]>`
+        UPDATE render_jobs
+           SET status = 'canceled', log = '사용자에 의해 중단됨', finished_at = now()
+         WHERE document_id = ${documentId}
+           AND requested_by = ${ownerId}
+           AND status IN ('queued', 'running')
+        RETURNING id
+      `;
+      return { canceledCount: rows.length };
     }
   };
 }

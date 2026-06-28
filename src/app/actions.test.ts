@@ -85,6 +85,7 @@ const service = {
   saveDocument: vi.fn(),
   renderDocument: vi.fn(),
   getRenderJob: vi.fn(),
+  cancelRender: vi.fn(),
 };
 
 const mockedCreateAppDocumentService = vi.mocked(createAppDocumentService);

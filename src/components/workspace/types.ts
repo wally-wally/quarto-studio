@@ -35,3 +35,7 @@ export type DeleteDocumentAction = (
 export type RenderDocumentAction = (
   input: SaveDocumentInput
 ) => Promise<{ workspace: WorkspaceState; jobId: string }>;
+
+export type CancelRenderAction = (
+  documentId: string
+) => Promise<WorkspaceState>;

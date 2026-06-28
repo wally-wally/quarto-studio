@@ -678,6 +678,17 @@ input {
   white-space: nowrap;
 }
 
+/* 렌더 중단 버튼 — 렌더링 중에만 노출, danger 톤(무한 렌더 탈출구) */
+.preview-cancel {
+  color: var(--danger);
+  border-color: oklch(62% 0.19 22 / 0.5);
+}
+.preview-cancel:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: oklch(62% 0.19 22 / 0.12);
+}
+
 .rendering-indicator::before {
   content: "";
   width: 7px;
