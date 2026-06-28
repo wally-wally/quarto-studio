@@ -313,3 +313,64 @@ describe("document repository", () => {
     ).rejects.toThrow(`Document not found: ${docA.id}`);
   });
 });
+
+describe("completeRenderJob", () => {
+  async function seedRunningJob() {
+    const ownerId = await createTestUser();
+    const doc = await repository.getOrCreateSeedDocument(ownerId);
+    const { jobId } = await repository.enqueueRenderJob({
+      ownerId,
+      documentId: doc.id,
+      contentSnapshot: doc.content,
+      executeCode: true,
+    });
+    // 워커 클레임을 흉내내 running으로 만든다.
+    await sql`UPDATE render_jobs SET status = 'running' WHERE id = ${jobId}`;
+    return { ownerId, documentId: doc.id, jobId };
+  }
+
+  it("성공 렌더를 저장한다: artifacts 삽입 후 render_jobs.artifact_id 설정(FK 순서 보장)", async () => {
+    const { ownerId, documentId, jobId } = await seedRunningJob();
+    const artifactId = randomUUID();
+
+    const result = await repository.completeRenderJob({
+      jobId,
+      documentId,
+      artifactId,
+      storageKey: `${artifactId}.html`,
+      sizeBytes: 1234,
+      log: "ok",
+    });
+
+    expect(result.stored).toBe(true);
+    const job = await repository.getRenderJob(jobId);
+    expect(job?.status).toBe("succeeded");
+    expect(job?.artifactId).toBe(artifactId);
+    const doc = await repository.getDocument(ownerId, documentId);
+    expect(doc?.latestArtifactId).toBe(artifactId);
+    const arts = await sql<{ id: string }[]>`SELECT id FROM artifacts WHERE id = ${artifactId}`;
+    expect(arts).toHaveLength(1);
+  });
+
+  it("완료 직전 취소된 잡(status != running)은 덮어쓰지 않는다(stored=false, 아티팩트 미생성)", async () => {
+    const { documentId, jobId } = await seedRunningJob();
+    await sql`UPDATE render_jobs SET status = 'canceled' WHERE id = ${jobId}`;
+    const artifactId = randomUUID();
+
+    const result = await repository.completeRenderJob({
+      jobId,
+      documentId,
+      artifactId,
+      storageKey: `${artifactId}.html`,
+      sizeBytes: 1,
+      log: "ok",
+    });
+
+    expect(result.stored).toBe(false);
+    const job = await repository.getRenderJob(jobId);
+    expect(job?.status).toBe("canceled");
+    expect(job?.artifactId).toBeNull();
+    const arts = await sql<{ id: string }[]>`SELECT id FROM artifacts WHERE id = ${artifactId}`;
+    expect(arts).toHaveLength(0);
+  });
+});

@@ -357,6 +357,41 @@ export function createDocumentRepository(sql: Sql) {
         RETURNING id
       `;
       return { canceledCount: rows.length };
+    },
+
+    async completeRenderJob(input: {
+      jobId: string;
+      documentId: string;
+      artifactId: string;
+      storageKey: string;
+      sizeBytes: number;
+      log: string;
+    }): Promise<{ stored: boolean }> {
+      return await sql.begin(async (tx) => {
+        // 레이스 가드: 아직 running인 잡만 성공 처리한다(렌더 완료 직전에 취소된
+        // 잡은 status != 'running'이라 0행 → 결과를 덮어쓰지 않는다).
+        const updated = await tx<{ id: string }[]>`
+          UPDATE render_jobs
+             SET status = 'succeeded', log = ${input.log}, finished_at = now()
+           WHERE id = ${input.jobId} AND status = 'running'
+          RETURNING id
+        `;
+        if (updated.length === 0) return { stored: false };
+
+        // render_jobs.artifact_id / documents.latest_artifact_id 는 모두 artifacts(id)를
+        // 참조하는 즉시검사 FK다. 반드시 artifacts 행을 먼저 INSERT한 뒤에 참조를 건다.
+        await tx`
+          INSERT INTO artifacts (id, document_id, job_id, storage_key, size_bytes)
+          VALUES (${input.artifactId}, ${input.documentId}, ${input.jobId}, ${input.storageKey}, ${input.sizeBytes})
+        `;
+        await tx`
+          UPDATE render_jobs SET artifact_id = ${input.artifactId} WHERE id = ${input.jobId}
+        `;
+        await tx`
+          UPDATE documents SET latest_artifact_id = ${input.artifactId} WHERE id = ${input.documentId}
+        `;
+        return { stored: true };
+      });
     }
   };
 }
