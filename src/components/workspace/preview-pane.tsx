@@ -1,4 +1,5 @@
-import { AlertCircle, Download, FileText, RefreshCw, X } from "lucide-react";
+import { AlertCircle, Download, FileText, Maximize2, RefreshCw, X } from "lucide-react";
+import { useRef } from "react";
 import type { DocumentRecord } from "@/lib/documents/types";
 
 type PreviewPaneProps = {
@@ -30,6 +31,13 @@ export function PreviewPane({
   onCancelRender,
   onDownload
 }: PreviewPaneProps) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+
+  // 렌더된 미리보기(iframe)를 브라우저 전체 화면으로. Esc로 빠져나온다.
+  const handleFullscreen = () => {
+    frameRef.current?.requestFullscreen?.().catch(() => {});
+  };
+
   return (
     <section className="workspace-pane preview-pane" aria-label="렌더 미리보기">
       <div className="pane-header">
@@ -52,6 +60,17 @@ export function PreviewPane({
             >
               <Download size={16} aria-hidden="true" />
               다운로드
+            </button>
+          ) : null}
+          {document.latestArtifactId ? (
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={handleFullscreen}
+              aria-label="미리보기 전체 화면"
+            >
+              <Maximize2 size={16} aria-hidden="true" />
+              전체 화면
             </button>
           ) : null}
           <button
@@ -85,6 +104,7 @@ export function PreviewPane({
       </div>
       {document.latestArtifactId ? (
         <iframe
+          ref={frameRef}
           className="preview-frame"
           sandbox="allow-scripts"
           src={`/preview/${document.latestArtifactId}`}

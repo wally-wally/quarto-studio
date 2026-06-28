@@ -27,6 +27,8 @@ vi.mock("./code-editor", () => ({
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
 
 const workspace: WorkspaceState = {
@@ -413,6 +415,107 @@ describe("QuartoWorkspace", () => {
     renderWorkspace();
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
     expect(screen.getByLabelText("AI 프롬프트")).toBeInTheDocument();
+  });
+
+  it("다른 문서로 이동하면 AI 드로어가 닫히고 프롬프트가 초기화된다", async () => {
+    const user = userEvent.setup();
+    const selectedWorkspace: WorkspaceState = {
+      ...workspace,
+      activeDocument: {
+        id: "doc-2",
+        title: "운영 리포트",
+        slug: "ops-report",
+        content: "# 운영 리포트",
+        executeCode: true,
+        renderStatus: "idle",
+        latestArtifactId: null,
+        renderError: null,
+        createdAt: "2026-06-24T01:00:00.000Z",
+        updatedAt: "2026-06-24T01:00:00.000Z",
+        renderedAt: null
+      }
+    };
+    renderWorkspace({ selectDocument: vi.fn(async () => selectedWorkspace) });
+
+    // 드로어 열고 프롬프트 입력
+    await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
+    await user.type(screen.getByLabelText("AI 프롬프트"), "테스트 프롬프트");
+    expect(screen.getByLabelText("AI 프롬프트")).toHaveValue("테스트 프롬프트");
+
+    // 다른 문서로 이동 → 드로어가 닫힌다(프롬프트 textarea 사라짐)
+    await user.click(screen.getByRole("button", { name: "운영 리포트 열기" }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText("AI 프롬프트")).not.toBeInTheDocument();
+    });
+
+    // 다시 열면 프롬프트가 비어 있다(key 리마운트로 초기화)
+    await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
+    expect(screen.getByLabelText("AI 프롬프트")).toHaveValue("");
+  });
+
+  it("미확정 AI 작성분이 있으면 문서 이동 시 확인을 거친다(취소=머무름, 확인=이동)", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      "quarto-studio:ai-settings",
+      JSON.stringify({
+        provider: "anthropic",
+        anthropic: { apiKey: "test-key", model: "claude-sonnet-4-6" },
+        openai: { apiKey: "", model: "gpt-5.5" }
+      })
+    );
+    // /api/ai/generate 스트림 응답 mock (delta + done)
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const enc = new TextEncoder();
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(enc.encode('{"type":"delta","text":"AI가 작성한 내용"}\n'));
+            controller.enqueue(enc.encode('{"type":"done","usage":{"inputTokens":1,"outputTokens":2}}\n'));
+            controller.close();
+          }
+        });
+        return new Response(stream, { status: 200 });
+      })
+    );
+
+    const selectedWorkspace: WorkspaceState = {
+      ...workspace,
+      activeDocument: {
+        id: "doc-2",
+        title: "운영 리포트",
+        slug: "ops-report",
+        content: "# 운영 리포트",
+        executeCode: true,
+        renderStatus: "idle",
+        latestArtifactId: null,
+        renderError: null,
+        createdAt: "2026-06-24T01:00:00.000Z",
+        updatedAt: "2026-06-24T01:00:00.000Z",
+        renderedAt: null
+      }
+    };
+    const selectDocument = vi.fn(async () => selectedWorkspace);
+    renderWorkspace({ selectDocument });
+
+    // AI 작성으로 에디터에 내용 생성 → '되돌리기' 가능(미확정) 상태
+    await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
+    await user.type(screen.getByLabelText("AI 프롬프트"), "테스트");
+    await user.click(screen.getByRole("button", { name: "생성" }));
+    await screen.findByRole("button", { name: "되돌리기" });
+
+    // 취소 → 머무름(이동 안 함)
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await user.click(screen.getByRole("button", { name: "운영 리포트 열기" }));
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(selectDocument).not.toHaveBeenCalled();
+
+    // 확인 → 이동
+    confirmSpy.mockReturnValue(true);
+    await user.click(screen.getByRole("button", { name: "운영 리포트 열기" }));
+    await waitFor(() => expect(selectDocument).toHaveBeenCalledWith("doc-2"));
+
+    confirmSpy.mockRestore();
   });
 
   it("문서 전환 시 진행 중인 폴링이 정리된다", async () => {

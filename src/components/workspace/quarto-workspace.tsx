@@ -57,11 +57,13 @@ export function QuartoWorkspace({
   }, []);
   // AI 스트리밍을 에디터 뷰에 직접 append(스크롤 튐 방지)하기 위해 EditorView 참조를 보관한다.
   const editorViewRef = useRef<EditorView | null>(null);
-  const { generating, handlers: aiHandlers } = useAiGeneration(
+  const { generating, pendingRevert, resetGeneration, handlers: aiHandlers } = useAiGeneration(
     () => draft.content,
     setDraftContent,
     editorViewRef,
   );
+  // 생성 중이거나 생성 후 되돌리기 전이면 '미확정 AI 작성분' 상태 — 이탈 가드 대상.
+  const aiDirty = generating || pendingRevert;
   const [isPending, startTransition] = useTransition();
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -211,6 +213,23 @@ export function QuartoWorkspace({
     return () => clearInterval(intervalId);
   }, [pollingJobId, isPolling, getRenderJob, draft.id, stopPolling]);
 
+  // 문서가 바뀌면 AI 생성 세션을 초기화한다(이전 문서의 미확정 작성분 플래그·스냅샷 제거).
+  useEffect(() => {
+    resetGeneration();
+  }, [draft.id, resetGeneration]);
+
+  // F5·탭 닫기 등 페이지 이탈 시 미확정 AI 작성분이 있으면 브라우저 기본 경고를 띄운다.
+  // (beforeunload 문구는 브라우저가 제어하므로 커스텀 불가.)
+  useEffect(() => {
+    if (!aiDirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [aiDirty]);
+
   const isRendering = draft.renderStatus === "rendering" || isPolling;
   // 렌더는 비동기다: 잡 등록 transition(isPending) → 워커 처리 폴링(isRendering).
   // 두 구간 모두 편집·문서 이동·재렌더를 잠가, 옛 동기 렌더처럼 "렌더 중엔 다른 동작 불가"를 유지한다.
@@ -249,7 +268,18 @@ export function QuartoWorkspace({
     if (documentId === draft.id) {
       return;
     }
+    // 미확정 AI 작성분이 있으면 이동 전 확인한다(내용은 자동 저장돼 유지되지만 되돌리기는 불가).
+    if (
+      aiDirty &&
+      !window.confirm(
+        "AI로 작성한 내용이 있습니다. 다른 문서로 이동하면 방금 작성분을 되돌릴 수 없습니다. 계속할까요?",
+      )
+    ) {
+      return;
+    }
     stopPolling();
+    // 다른 문서로 이동하면 AI 작성 드로어를 닫는다(입력/첨부는 key 리마운트로 초기화).
+    setAiDrawerOpen(false);
     setActionError(null);
     startTransition(async () => {
       try {
@@ -265,6 +295,7 @@ export function QuartoWorkspace({
 
   const handleCreateDocument = (title: string) => {
     setActionError(null);
+    setAiDrawerOpen(false);
     startTransition(async () => {
       try {
         await saveDraftIfNeeded();
@@ -352,6 +383,7 @@ export function QuartoWorkspace({
           onDeleteDocument={handleDeleteDocument}
         />
         <EditorPane
+          documentId={draft.id}
           title={draft.title}
           slug={draft.slug}
           content={draft.content}
