@@ -33,7 +33,7 @@ export function PreviewPane({
   return (
     <section className="workspace-pane preview-pane" aria-label="렌더 미리보기">
       <div className="pane-header">
-        <div>
+        <div className="pane-title">
           <h2>미리보기</h2>
           <p>
             {document.renderedAt

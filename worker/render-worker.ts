@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import postgres from "postgres";
 import { buildQuartoProjectFiles } from "../src/lib/quarto/project";
+import { createDocumentRepository } from "../src/lib/documents/repository";
 import { artifactStore } from "../src/lib/storage/artifact-store";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -31,6 +32,7 @@ const RENDER_WORK_DIR = process.env.RENDER_WORK_DIR ?? os.tmpdir();
 const RENDER_WORK_VOLUME = process.env.RENDER_WORK_VOLUME ?? "";
 
 const sql = postgres(DATABASE_URL, { onnotice: () => {} });
+const repository = createDocumentRepository(sql);
 
 type ClaimedJob = {
   id: string;
@@ -158,27 +160,15 @@ async function processJob(job: ClaimedJob): Promise<void> {
       const key = `${artifactId}.html`;
       const { sizeBytes } = await artifactStore.putArtifact(key, html);
 
-      let stored = false;
-      await sql.begin(async (tx) => {
-        // 레이스 가드: 렌더 완료 직전에 취소되었으면(status != 'running') 결과를 덮어쓰지 않는다.
-        const updated = await tx<{ id: string }[]>`
-          update render_jobs
-             set status = 'succeeded', artifact_id = ${artifactId}, log = ${out}, finished_at = now()
-           where id = ${job.id} and status = 'running'
-          returning id
-        `;
-        if (updated.length === 0) return;
-        stored = true;
-
-        await tx`
-          insert into artifacts (id, document_id, job_id, storage_key, size_bytes)
-          values (${artifactId}, ${job.document_id}, ${job.id}, ${key}, ${sizeBytes})
-        `;
-        await tx`
-          update documents
-             set latest_artifact_id = ${artifactId}
-           where id = ${job.document_id}
-        `;
+      // 성공 결과 저장은 repository로 위임(artifacts INSERT → render_jobs.artifact_id 순서로
+      // 즉시검사 FK를 만족시키고, status='running' 가드로 완료 직전 취소를 보호한다).
+      const { stored } = await repository.completeRenderJob({
+        jobId: job.id,
+        documentId: job.document_id,
+        artifactId,
+        storageKey: key,
+        sizeBytes,
+        log: out,
       });
 
       if (!stored) {
