@@ -125,8 +125,8 @@ export async function POST(req: Request): Promise<Response> {
             send(controller, { type: "tool", name: part.toolName, input: part.input });
           } else if (part.type === "finish") {
             usage = {
-              inputTokens: part.totalUsage.inputTokens ?? 0,
-              outputTokens: part.totalUsage.outputTokens ?? 0,
+              inputTokens: part.totalUsage?.inputTokens ?? 0,
+              outputTokens: part.totalUsage?.outputTokens ?? 0,
             };
           } else if (part.type === "error") {
             controller.error(

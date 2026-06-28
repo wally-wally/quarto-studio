@@ -88,6 +88,8 @@ describe("POST /api/ai/chat", () => {
     expect(text).toContain('"type":"tool"');
     expect(text).toContain('"name":"edit_document"');
     expect(text).toContain('"type":"done"');
+    expect(text).toContain('"inputTokens":10');
+    expect(text).toContain('"outputTokens":5');
 
     // 시스템 프롬프트에 현재 문서가 주입되고, 도구가 넘겨진다
     const arg = mockStreamText.mock.calls[0][0] as {
