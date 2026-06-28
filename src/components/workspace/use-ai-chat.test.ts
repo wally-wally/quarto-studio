@@ -4,9 +4,13 @@ import { useAiChat } from "./use-ai-chat";
 
 vi.mock("./apply-edits-to-editor", () => ({
   applyToolFrame: vi.fn(() => ({ kind: "edit", failed: false })),
+  streamDocumentToView: vi.fn(),
+  commitStreamedWrite: vi.fn(),
 }));
-import { applyToolFrame } from "./apply-edits-to-editor";
+import { applyToolFrame, streamDocumentToView, commitStreamedWrite } from "./apply-edits-to-editor";
 const mockApply = vi.mocked(applyToolFrame);
+const mockStream = vi.mocked(streamDocumentToView);
+const mockCommit = vi.mocked(commitStreamedWrite);
 
 function ndjsonResponse(frames: object[]): Response {
   const body = frames.map((f) => JSON.stringify(f) + "\n").join("");
@@ -79,6 +83,32 @@ describe("useAiChat", () => {
       await result.current.send("iris 보고서 만들어줘", []);
     });
     expect(mockApply).toHaveBeenCalledTimes(1);
+    expect(result.current.aiEditedThisSession).toBe(true);
+    expect(result.current.messages[1].edited).toBe("write");
+    vi.unstubAllGlobals();
+  });
+
+  it("doc-stream은 라이브로 streamDocumentToView, write 완료 시 commitStreamedWrite로 커밋한다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        ndjsonResponse([
+          { type: "delta", text: "문서를 만들게요." },
+          { type: "doc-stream", text: "# 제" },
+          { type: "doc-stream", text: "# 제목" },
+          { type: "tool", name: "write_document", input: { content: "# 제목" } },
+          { type: "done", usage: { inputTokens: 2, outputTokens: 8 }, provider: "anthropic", model: "claude-sonnet-4-6" },
+        ]),
+      ),
+    );
+    const { result } = renderHook(() => useAiChat(() => "현재 문서", editorRef));
+    await act(async () => {
+      await result.current.send("문서 만들어줘", []);
+    });
+    expect(mockStream).toHaveBeenCalled();
+    expect(mockStream).toHaveBeenLastCalledWith(expect.anything(), "# 제목");
+    expect(mockCommit).toHaveBeenCalledTimes(1); // 완료 시 한 번의 undo 스텝으로 커밋
+    expect(mockApply).not.toHaveBeenCalled(); // write 스트리밍 경로는 applyToolFrame 미사용
     expect(result.current.aiEditedThisSession).toBe(true);
     expect(result.current.messages[1].edited).toBe("write");
     vi.unstubAllGlobals();

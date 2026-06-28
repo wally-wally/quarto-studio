@@ -10,6 +10,22 @@ vi.mock("ai", () => ({
   // tool/jsonSchema는 tools.ts가 import하므로 패스스루로 모킹한다.
   tool: (def: unknown) => def,
   jsonSchema: (schema: unknown) => schema,
+  // 라우트가 write_document 인자를 부분 파싱할 때 쓴다(테스트용 best-effort 추출).
+  parsePartialJson: async (text: string) => {
+    try {
+      return { value: JSON.parse(text), state: "successful-parse" };
+    } catch {
+      const m = text.match(/"content"\s*:\s*"((?:\\.|[^"\\])*)/);
+      if (!m) return { value: undefined, state: "failed-parse" };
+      let s = m[1];
+      try {
+        s = JSON.parse('"' + s + '"');
+      } catch {
+        /* 미완 이스케이프 무시 */
+      }
+      return { value: { content: s }, state: "repaired-parse" };
+    }
+  },
   streamText: vi.fn(() => ({
     fullStream: (async function* () {
       yield { type: "text-delta", id: "t1", text: "제목을 바꿀게요." };
@@ -123,5 +139,25 @@ describe("POST /api/ai/chat", () => {
       })(),
     ).rejects.toThrow();
     expect(text).toContain("부분");
+  });
+
+  it("write_document 인자를 doc-stream으로 흘리고, 완성 시 tool 프레임도 보낸다", async () => {
+    mockStreamText.mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: "text-delta", id: "t1", text: "문서를 만들게요." };
+        yield { type: "tool-input-start", id: "w1", toolName: "write_document" };
+        yield { type: "tool-input-delta", id: "w1", delta: '{"content":"# 제' };
+        yield { type: "tool-input-delta", id: "w1", delta: '목"}' };
+        yield { type: "tool-call", toolCallId: "w1", toolName: "write_document", input: { content: "# 제목" } };
+        yield { type: "finish", totalUsage: { inputTokens: 3, outputTokens: 7 } };
+      })(),
+    } as unknown as ReturnType<typeof streamText>);
+    const res = await POST(makeRequest({ key: "sk", fields: validFields }));
+    const text = await res.text();
+    expect(text).toContain('"type":"doc-stream"');
+    expect(text).toContain("# 제목"); // 최종 부분까지 흐름
+    expect(text).toContain('"type":"tool"');
+    expect(text).toContain('"name":"write_document"');
+    expect(text).toContain('"type":"done"');
   });
 });

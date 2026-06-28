@@ -3,7 +3,8 @@ import type { RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { getActiveCredentials, loadSettings, type AiProvider } from "@/lib/ai/settings";
 import { estimateCostUsd } from "@/lib/ai/pricing";
-import { applyToolFrame } from "./apply-edits-to-editor";
+import { applyToolFrame, streamDocumentToView, commitStreamedWrite } from "./apply-edits-to-editor";
+import { WRITE_TOOL } from "@/lib/ai/tools";
 
 export type ChatUsage = {
   inputTokens: number;
@@ -25,6 +26,7 @@ export type ChatMessage = {
 
 type StreamFrame =
   | { type: "delta"; text: string }
+  | { type: "doc-stream"; text: string }
   | { type: "tool"; name: string; input: unknown }
   | { type: "done"; usage: { inputTokens: number; outputTokens: number }; provider?: AiProvider; model?: string };
 
@@ -87,6 +89,8 @@ export function useAiChat(
       const controller = new AbortController();
       abortRef.current = controller;
       const startedAt = performance.now();
+      // 스트리밍되던 write_document의 작성 전 스냅샷(완료·중단 시 한 번의 undo 스텝으로 커밋).
+      let writeSnapshot: string | null = null;
 
       try {
         const fd = new FormData();
@@ -120,13 +124,32 @@ export function useAiChat(
           if (frame.type === "delta") {
             accumulated += frame.text;
             patchMessage(assistantId, { text: accumulated });
+          } else if (frame.type === "doc-stream") {
+            // write_document 인자가 생성되는 대로 에디터에 라이브로 써 내려간다.
+            const view = editorViewRef.current;
+            if (view) {
+              if (writeSnapshot === null) writeSnapshot = view.state.doc.toString();
+              streamDocumentToView(view, frame.text);
+              setAiEditedThisSession(true);
+            }
           } else if (frame.type === "tool") {
             const view = editorViewRef.current;
-            const r = view
-              ? applyToolFrame(view, { name: frame.name, input: frame.input })
-              : { kind: "edit" as const, failed: true };
-            setAiEditedThisSession(true);
-            patchMessage(assistantId, { edited: r.kind, editFailed: r.failed });
+            if (frame.name === WRITE_TOOL && writeSnapshot !== null && view) {
+              // 스트리밍으로 써온 write를 한 번의 undo 스텝으로 커밋한다.
+              const content = (frame.input as { content?: unknown }).content;
+              const finalContent = typeof content === "string" ? content : view.state.doc.toString();
+              commitStreamedWrite(view, writeSnapshot, finalContent);
+              writeSnapshot = null;
+              setAiEditedThisSession(true);
+              patchMessage(assistantId, { edited: "write", editFailed: typeof content !== "string" });
+            } else {
+              // edit_document, 또는 스트리밍되지 않은 write → 기존 원자적 적용.
+              const r = view
+                ? applyToolFrame(view, { name: frame.name, input: frame.input })
+                : { kind: "edit" as const, failed: true };
+              setAiEditedThisSession(true);
+              patchMessage(assistantId, { edited: r.kind, editFailed: r.failed });
+            }
           } else if (frame.type === "done") {
             collected.usage = frame.usage;
           }
@@ -158,7 +181,13 @@ export function useAiChat(
         });
       } catch (e) {
         if (e instanceof Error && e.name === "AbortError") {
-          // 사용자가 중단: 부분 텍스트와 이미 적용된 편집은 유지하고 pending만 해제.
+          // 중단: 스트리밍 중이던 write가 있으면 지금까지를 한 스텝으로 커밋해 undo 가능하게 만든다.
+          const view = editorViewRef.current;
+          if (writeSnapshot !== null && view) {
+            commitStreamedWrite(view, writeSnapshot, view.state.doc.toString());
+            writeSnapshot = null;
+          }
+          // 부분 텍스트와 이미 적용된 편집은 유지하고 pending만 해제.
           patchMessage(assistantId, { pending: false });
         } else {
           patchMessage(assistantId, {

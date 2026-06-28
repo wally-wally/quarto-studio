@@ -1,10 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { applyToolFrame } from "./apply-edits-to-editor";
+import { history, undo } from "@codemirror/commands";
+import { applyToolFrame, streamDocumentToView, commitStreamedWrite } from "./apply-edits-to-editor";
 
 function makeView(doc: string): EditorView {
   return new EditorView({ state: EditorState.create({ doc }) });
+}
+
+function makeViewWithHistory(doc: string): EditorView {
+  return new EditorView({ state: EditorState.create({ doc, extensions: [history()] }) });
 }
 
 describe("applyToolFrame", () => {
@@ -48,5 +53,26 @@ describe("applyToolFrame", () => {
     const r = applyToolFrame(view, { name: "unknown_tool", input: {} });
     expect(view.state.doc.toString()).toBe("hello");
     expect(r.failed).toBe(true);
+  });
+
+  it("streamDocumentToView는 부분 내용을 라이브로 반영하되 history에는 남기지 않는다", () => {
+    const view = makeViewWithHistory("");
+    streamDocumentToView(view, "# T");
+    streamDocumentToView(view, "# Title");
+    expect(view.state.doc.toString()).toBe("# Title");
+    // 스트리밍 중간 단계는 history에 없으므로 되돌릴 게 없다
+    expect(undo(view)).toBe(false);
+    expect(view.state.doc.toString()).toBe("# Title");
+  });
+
+  it("commitStreamedWrite 후 undo 한 번이면 스냅샷으로 되돌아간다(1 스텝)", () => {
+    const view = makeViewWithHistory("이전 내용");
+    const snapshot = "이전 내용";
+    streamDocumentToView(view, "새 문");
+    streamDocumentToView(view, "새 문서");
+    commitStreamedWrite(view, snapshot, "새 문서 최종");
+    expect(view.state.doc.toString()).toBe("새 문서 최종");
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(snapshot);
   });
 });

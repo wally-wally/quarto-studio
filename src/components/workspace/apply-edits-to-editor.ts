@@ -1,9 +1,43 @@
 import { EditorView } from "@codemirror/view";
+import { Transaction } from "@codemirror/state";
 import { applyEdits } from "@/lib/quarto/apply-edits";
 import { EDIT_TOOL, WRITE_TOOL, type EditDocumentInput, type WriteDocumentInput } from "@/lib/ai/tools";
 
 export type ToolFrame = { name: string; input: unknown };
 export type ApplyResult = { kind: "edit" | "write"; failed: boolean };
+
+/**
+ * write_document 스트리밍 중, 지금까지의 부분 문서를 라이브로 반영한다.
+ * undo 히스토리에는 남기지 않는다(addToHistory:false) — 중간 타이핑 단계가 Cmd+Z로
+ * 하나씩 되돌려지지 않게. 최종 커밋은 commitStreamedWrite에서 한 스텝으로 처리한다.
+ * 끝까지 따라가도록 selection을 문서 끝에 두고 스크롤한다.
+ */
+export function streamDocumentToView(view: EditorView, content: string): void {
+  const current = view.state.doc.toString();
+  if (content === current) return;
+  const isAppend = content.startsWith(current);
+  view.dispatch({
+    changes: isAppend
+      ? { from: current.length, insert: content.slice(current.length) }
+      : { from: 0, to: current.length, insert: content },
+    selection: { anchor: content.length },
+    annotations: Transaction.addToHistory.of(false),
+    scrollIntoView: true,
+  });
+}
+
+/**
+ * 스트리밍 완료 시 한 번의 undo 스텝으로 커밋한다.
+ * 스냅샷(작성 전)으로 history 없이 되돌린 뒤, 최종본을 history와 함께 적용 →
+ * 사용자가 Cmd+Z 한 번이면 AI 작성분 전체가 스냅샷으로 되돌아간다.
+ */
+export function commitStreamedWrite(view: EditorView, snapshot: string, finalContent: string): void {
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: snapshot },
+    annotations: Transaction.addToHistory.of(false),
+  });
+  view.dispatch({ changes: { from: 0, to: snapshot.length, insert: finalContent } });
+}
 
 /**
  * 모델의 도구 호출(tool 프레임)을 에디터에 반영한다.
