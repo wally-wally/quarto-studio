@@ -250,6 +250,8 @@ export function QuartoWorkspace({
       return;
     }
     stopPolling();
+    // 다른 문서로 이동하면 AI 작성 드로어를 닫는다(입력/첨부는 key 리마운트로 초기화).
+    setAiDrawerOpen(false);
     setActionError(null);
     startTransition(async () => {
       try {
@@ -265,6 +267,7 @@ export function QuartoWorkspace({
 
   const handleCreateDocument = (title: string) => {
     setActionError(null);
+    setAiDrawerOpen(false);
     startTransition(async () => {
       try {
         await saveDraftIfNeeded();
@@ -352,6 +355,7 @@ export function QuartoWorkspace({
           onDeleteDocument={handleDeleteDocument}
         />
         <EditorPane
+          documentId={draft.id}
           title={draft.title}
           slug={draft.slug}
           content={draft.content}

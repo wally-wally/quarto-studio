@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, Sparkles, X } from "lucide-react";
 import { getActiveCredentials, loadSettings, type AiProvider } from "@/lib/ai/settings";
 import { estimateCostUsd, formatUsd, formatDuration } from "@/lib/ai/pricing";
@@ -62,6 +62,14 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<GenerationResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // 드로어가 언마운트되면(문서 전환으로 key가 바뀌는 등) 진행 중인 생성을 중단한다.
+  // 그래야 스트리밍 응답이 새 문서의 에디터로 새지 않는다.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
 

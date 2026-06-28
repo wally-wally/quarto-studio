@@ -4,6 +4,7 @@ import CodeEditor from "./code-editor";
 import { AiDrawer, type AiGenerationHandlers } from "./ai-drawer";
 
 type EditorPaneProps = {
+  documentId: string;
   title: string;
   slug: string;
   content: string;
@@ -22,6 +23,7 @@ type EditorPaneProps = {
 };
 
 export function EditorPane({
+  documentId,
   title,
   slug,
   content,
@@ -95,6 +97,7 @@ export function EditorPane({
         onCreateEditor={onEditorReady}
       />
       <AiDrawer
+        key={documentId}
         open={aiDrawerOpen}
         onToggle={onToggleAiDrawer}
         isBusy={isBusy}
