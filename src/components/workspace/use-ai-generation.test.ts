@@ -43,3 +43,43 @@ describe("useAiGeneration", () => {
     expect(setContent).toHaveBeenLastCalledWith("원본");
   });
 });
+
+describe("useAiGeneration pendingRevert / resetGeneration", () => {
+  it("초기엔 pendingRevert가 false다", () => {
+    const { hook } = setup("원본");
+    expect(hook.result.current.pendingRevert).toBe(false);
+  });
+
+  it("생성(onStart→onFinish)이 끝나면 pendingRevert가 true가 된다", () => {
+    const { hook } = setup("원본");
+    act(() => hook.result.current.handlers.onStart());
+    expect(hook.result.current.pendingRevert).toBe(false);
+    act(() => hook.result.current.handlers.onFinish());
+    expect(hook.result.current.pendingRevert).toBe(true);
+  });
+
+  it("onRevert는 pendingRevert를 false로 되돌린다", () => {
+    const { hook } = setup("원본");
+    act(() => hook.result.current.handlers.onStart());
+    act(() => hook.result.current.handlers.onFinish());
+    act(() => hook.result.current.handlers.onRevert());
+    expect(hook.result.current.pendingRevert).toBe(false);
+  });
+
+  it("resetGeneration은 미확정 작성분 상태를 초기화한다", () => {
+    const { hook } = setup("원본");
+    act(() => hook.result.current.handlers.onStart());
+    act(() => hook.result.current.handlers.onFinish());
+    expect(hook.result.current.pendingRevert).toBe(true);
+    act(() => hook.result.current.resetGeneration());
+    expect(hook.result.current.pendingRevert).toBe(false);
+  });
+
+  it("세션 무효화(resetGeneration) 후 중단된 생성의 늦은 onFinish는 pendingRevert를 켜지 않는다", () => {
+    const { hook } = setup("원본");
+    act(() => hook.result.current.handlers.onStart());
+    act(() => hook.result.current.resetGeneration()); // 문서 전환으로 세션 무효화
+    act(() => hook.result.current.handlers.onFinish()); // 중단된 생성의 늦은 완료
+    expect(hook.result.current.pendingRevert).toBe(false);
+  });
+});
