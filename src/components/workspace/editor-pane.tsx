@@ -1,4 +1,5 @@
 import { Play, Sparkles } from "lucide-react";
+import type { EditorView } from "@codemirror/view";
 import CodeEditor from "./code-editor";
 import { AiDrawer, type AiGenerationHandlers } from "./ai-drawer";
 
@@ -17,6 +18,7 @@ type EditorPaneProps = {
   onContentChange: (value: string) => void;
   onExecuteCodeChange: (value: boolean) => void;
   onRender: () => void;
+  onEditorReady?: (view: EditorView) => void;
 };
 
 export function EditorPane({
@@ -34,6 +36,7 @@ export function EditorPane({
   onContentChange,
   onExecuteCodeChange,
   onRender,
+  onEditorReady,
 }: EditorPaneProps) {
   return (
     <section className="workspace-pane editor-pane" aria-label="QMD 에디터">
@@ -85,7 +88,12 @@ export function EditorPane({
           </button>
         </div>
       </div>
-      <CodeEditor value={content} onChange={onContentChange} readOnly={isBusy} />
+      <CodeEditor
+        value={content}
+        onChange={onContentChange}
+        readOnly={isBusy}
+        onCreateEditor={onEditorReady}
+      />
       <AiDrawer
         open={aiDrawerOpen}
         onToggle={onToggleAiDrawer}

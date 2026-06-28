@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { EditorView } from "@codemirror/view";
 import { AlertCircle, Settings } from "lucide-react";
 import { SettingsModal } from "@/components/settings/settings-modal";
 import { useAiGeneration } from "./use-ai-generation";
@@ -51,7 +52,13 @@ export function QuartoWorkspace({
   const setDraftContent = useCallback((content: string) => {
     setDraft((current) => ({ ...current, content }));
   }, []);
-  const { generating, handlers: aiHandlers } = useAiGeneration(() => draft.content, setDraftContent);
+  // AI 스트리밍을 에디터 뷰에 직접 append(스크롤 튐 방지)하기 위해 EditorView 참조를 보관한다.
+  const editorViewRef = useRef<EditorView | null>(null);
+  const { generating, handlers: aiHandlers } = useAiGeneration(
+    () => draft.content,
+    setDraftContent,
+    editorViewRef,
+  );
   const [isPending, startTransition] = useTransition();
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -350,6 +357,9 @@ export function QuartoWorkspace({
             setDraft((current) => ({ ...current, executeCode }))
           }
           onRender={handleRender}
+          onEditorReady={(view) => {
+            editorViewRef.current = view;
+          }}
         />
         <PreviewPane
           document={draft}
