@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import type { EditorView } from "@codemirror/view";
 import { AlertCircle, Settings } from "lucide-react";
 import { SettingsModal } from "@/components/settings/settings-modal";
-import { useAiGeneration } from "./use-ai-generation";
+import { useAiChat } from "./use-ai-chat";
 import { normalizeSlug } from "@/lib/documents/slug";
 import type { RenderJobRecord, SaveDocumentInput } from "@/lib/documents/types";
 import { logoutAction } from "@/lib/auth/actions";
@@ -52,18 +52,12 @@ export function QuartoWorkspace({
   const [actionError, setActionError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
-  const setDraftContent = useCallback((content: string) => {
-    setDraft((current) => ({ ...current, content }));
-  }, []);
-  // AI 스트리밍을 에디터 뷰에 직접 append(스크롤 튐 방지)하기 위해 EditorView 참조를 보관한다.
+  // AI 스트리밍을 에디터 뷰에 직접 적용하기 위해 EditorView 참조를 보관한다.
   const editorViewRef = useRef<EditorView | null>(null);
-  const { generating, pendingRevert, resetGeneration, handlers: aiHandlers } = useAiGeneration(
-    () => draft.content,
-    setDraftContent,
-    editorViewRef,
-  );
-  // 생성 중이거나 생성 후 되돌리기 전이면 '미확정 AI 작성분' 상태 — 이탈 가드 대상.
-  const aiDirty = generating || pendingRevert;
+  const { messages, generating, aiEditedThisSession, send: sendAi, stop: stopAi, resetChat } =
+    useAiChat(() => draft.content, editorViewRef);
+  // 생성 중이거나 AI가 이번 세션에 편집한 뒤면 '미확정' 상태 — 이탈 가드 대상.
+  const aiDirty = generating || aiEditedThisSession;
   const [isPending, startTransition] = useTransition();
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -213,10 +207,10 @@ export function QuartoWorkspace({
     return () => clearInterval(intervalId);
   }, [pollingJobId, isPolling, getRenderJob, draft.id, stopPolling]);
 
-  // 문서가 바뀌면 AI 생성 세션을 초기화한다(이전 문서의 미확정 작성분 플래그·스냅샷 제거).
+  // 문서가 바뀌면 AI 채팅 세션을 초기화한다(이전 문서의 메시지·편집 플래그 제거).
   useEffect(() => {
-    resetGeneration();
-  }, [draft.id, resetGeneration]);
+    resetChat();
+  }, [draft.id, resetChat]);
 
   // F5·탭 닫기 등 페이지 이탈 시 미확정 AI 작성분이 있으면 브라우저 기본 경고를 띄운다.
   // (beforeunload 문구는 브라우저가 제어하므로 커스텀 불가.)
@@ -268,11 +262,11 @@ export function QuartoWorkspace({
     if (documentId === draft.id) {
       return;
     }
-    // 미확정 AI 작성분이 있으면 이동 전 확인한다(내용은 자동 저장돼 유지되지만 되돌리기는 불가).
+    // 미확정 AI 작성분이 있으면 이동 전 확인한다(내용은 자동 저장돼 유지되지만 undo 기록은 사라짐).
     if (
       aiDirty &&
       !window.confirm(
-        "AI로 작성한 내용이 있습니다. 다른 문서로 이동하면 방금 작성분을 되돌릴 수 없습니다. 계속할까요?",
+        "AI가 편집한 내용이 있습니다. 다른 문서로 이동하면 실행취소(Cmd+Z) 기록이 사라집니다. 계속할까요?",
       )
     ) {
       return;
@@ -390,21 +384,16 @@ export function QuartoWorkspace({
           executeCode={draft.executeCode}
           isBusy={paneBusy}
           aiDrawerOpen={aiDrawerOpen}
-          aiHandlers={aiHandlers}
+          generating={generating}
+          messages={messages}
+          onSendAi={sendAi}
+          onStopAi={stopAi}
           onToggleAiDrawer={() => setAiDrawerOpen((v) => !v)}
           onOpenSettings={() => setSettingsOpen(true)}
-          onTitleChange={(title) =>
-            setDraft((current) => ({ ...current, title }))
-          }
-          onSlugChange={(slug) =>
-            setDraft((current) => ({ ...current, slug }))
-          }
-          onContentChange={(content) =>
-            setDraft((current) => ({ ...current, content }))
-          }
-          onExecuteCodeChange={(executeCode) =>
-            setDraft((current) => ({ ...current, executeCode }))
-          }
+          onTitleChange={(title) => setDraft((current) => ({ ...current, title }))}
+          onSlugChange={(slug) => setDraft((current) => ({ ...current, slug }))}
+          onContentChange={(content) => setDraft((current) => ({ ...current, content }))}
+          onExecuteCodeChange={(executeCode) => setDraft((current) => ({ ...current, executeCode }))}
           onRender={handleRender}
           onEditorReady={(view) => {
             editorViewRef.current = view;

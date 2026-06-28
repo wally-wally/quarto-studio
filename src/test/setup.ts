@@ -39,3 +39,9 @@ process.env.DATABASE_URL ??=
 afterEach(() => {
   globalThis.localStorage.clear();
 });
+
+// jsdom은 scrollIntoView를 구현하지 않으므로 no-op으로 채워 AI 메시지 목록 테스트에서
+// "is not a function" 오류를 막는다. Node(비-jsdom) 환경에선 Element 자체가 없으므로 가드.
+if (typeof Element !== "undefined") {
+  Element.prototype.scrollIntoView = () => {};
+}
