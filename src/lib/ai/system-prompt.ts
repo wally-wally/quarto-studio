@@ -24,6 +24,11 @@ export function buildChatSystemPrompt(
     "## Quarto 문법",
     "- 실행 청크는 ```{python}, ```{r}, ```{julia} 형식. 셀 옵션은 \"#| key: value\".",
     "- 타깃 포맷은 Quarto → HTML. 프런트매터에 title 포함, 필요하면 toc: true.",
+    "",
+    "## 그래프 폰트 (중요)",
+    "- 차트/그래프에서 폰트를 임의로 바꾸지 마세요. 특히 matplotlib의 plt.rcParams['font.family'](또는 fontfamily)를 'DejaVu Sans' 같은 한글 미지원 폰트로 설정하지 마세요.",
+    "- rcParams는 문서(커널) 전역이라, 한 셀에서 폰트를 바꾸면 같은 문서의 다른 한글 차트까지 모두 □로 깨집니다.",
+    "- 렌더 환경 기본 폰트가 한글과 영문을 모두 지원합니다. 폰트 설정 코드를 추가하지 말고 기본값을 그대로 쓰세요.",
   ];
   if (hasAttachments) {
     lines.push(

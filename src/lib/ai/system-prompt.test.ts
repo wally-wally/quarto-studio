@@ -37,4 +37,10 @@ describe("buildChatSystemPrompt", () => {
     const p = buildChatSystemPrompt({ hasAttachments: true });
     expect(p).toContain("첨부");
   });
+
+  it("그래프 폰트를 한글 미지원 폰트(DejaVu 등)로 전역 변경하지 말라고 지시한다", () => {
+    const p = buildChatSystemPrompt({});
+    expect(p).toContain("font.family");
+    expect(p).toContain("DejaVu");
+  });
 });
