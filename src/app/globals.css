@@ -660,6 +660,7 @@ input {
 
 .pane-actions {
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .preview-actions {
@@ -720,6 +721,7 @@ input {
 .seg-control {
   gap: 2px;
   padding: 2px;
+  flex-shrink: 0;
   border: 1px solid var(--border-2);
   border-radius: var(--radius);
   background: var(--bg-deep);
@@ -734,6 +736,7 @@ input {
   border-radius: 5px;
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
   color: var(--fg-muted);
   transition: background 0.15s, color 0.15s;
 }
