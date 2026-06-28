@@ -23,22 +23,22 @@ describe("AiMessageList", () => {
     expect(screen.getByText("안녕하세요!")).toBeTruthy();
   });
 
-  it("편집이 적용된 어시스턴트 메시지에 수정 칩을 보여준다", () => {
+  it("편집이 적용된 어시스턴트 메시지에 수정 상태 줄을 보여준다", () => {
     const messages: ChatMessage[] = [
       { id: "2", role: "assistant", text: "고쳤어요", edited: "edit" },
     ];
     render(<AiMessageList messages={messages} generating={false} />);
-    expect(screen.getByText(/문서 수정됨/)).toBeTruthy();
+    expect(screen.getByText(/문서를 수정했습니다/)).toBeTruthy();
   });
 
-  it("전체 작성 칩과 일부 실패 주석을 구분해 보여준다", () => {
+  it("작성 상태와 일부 실패 상태를 구분해 보여준다", () => {
     const messages: ChatMessage[] = [
       { id: "2", role: "assistant", text: "작성", edited: "write" },
       { id: "3", role: "assistant", text: "일부", edited: "edit", editFailed: true },
     ];
     render(<AiMessageList messages={messages} generating={false} />);
-    expect(screen.getByText(/문서 작성됨/)).toBeTruthy();
-    expect(screen.getByText(/일부 편집 미적용/)).toBeTruthy();
+    expect(screen.getByText(/문서를 새로 작성했습니다/)).toBeTruthy();
+    expect(screen.getByText(/일부 편집을 적용하지 못했습니다/)).toBeTruthy();
   });
 
   it("usage가 있으면 턴별 사용량을 보여준다", () => {
@@ -47,5 +47,25 @@ describe("AiMessageList", () => {
     ];
     render(<AiMessageList messages={messages} generating={false} />);
     expect(screen.getByText(/토큰/)).toBeTruthy();
+  });
+
+  it("어시스턴트 메시지를 마크다운으로 렌더한다", () => {
+    const messages: ChatMessage[] = [
+      { id: "2", role: "assistant", text: "## 제목\n\n**굵게** 그리고 `코드`\n\n- 항목1\n- 항목2" },
+    ];
+    const { container } = render(<AiMessageList messages={messages} generating={false} />);
+    expect(container.querySelector("h2")?.textContent).toBe("제목");
+    expect(container.querySelector("strong")?.textContent).toBe("굵게");
+    expect(container.querySelector("code")?.textContent).toBe("코드");
+    expect(container.querySelectorAll("li")).toHaveLength(2);
+    // 원시 마크다운 기호가 그대로 노출되지 않아야 한다
+    expect(screen.queryByText("## 제목")).toBeNull();
+  });
+
+  it("사용자 메시지는 마크다운으로 렌더하지 않고 평문으로 둔다", () => {
+    const messages: ChatMessage[] = [{ id: "1", role: "user", text: "## 평문 그대로" }];
+    const { container } = render(<AiMessageList messages={messages} generating={false} />);
+    expect(container.querySelector("h2")).toBeNull();
+    expect(screen.getByText("## 평문 그대로")).toBeTruthy();
   });
 });
