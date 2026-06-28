@@ -1450,6 +1450,27 @@ input {
 .ai-actions { display: flex; gap: 8px; }
 .ai-link { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
 
+/* 대화형 채팅 */
+.ai-chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+.ai-chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--fg-subtle); font-size: 13px; padding: 16px; }
+.ai-msg { display: flex; flex-direction: column; gap: 4px; max-width: 100%; }
+.ai-msg-user { align-items: flex-end; }
+.ai-msg-assistant { align-items: flex-start; }
+.ai-bubble { max-width: 88%; padding: 8px 11px; border-radius: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.ai-msg-user .ai-bubble { background: var(--accent-dim); color: var(--fg); border-bottom-right-radius: 4px; }
+.ai-msg-assistant .ai-bubble { background: var(--bg-active); color: var(--fg); border-bottom-left-radius: 4px; }
+.ai-bubble-error { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.ai-edit-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--accent); }
+.ai-edit-warn { font-size: 11px; color: var(--fg-subtle); }
+.ai-msg-usage { font-size: 10px; color: var(--fg-subtle); font-family: var(--font-mono); }
+.ai-composer { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 8px; }
+.ai-composer-row { display: flex; align-items: flex-end; gap: 6px; }
+.ai-composer-input { flex: 1; min-height: 38px; max-height: 140px; resize: none; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-deep); color: var(--fg); font-family: inherit; font-size: 13px; line-height: 1.5; }
+.ai-composer-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); outline: none; }
+.ai-composer-input::placeholder { color: var(--fg-subtle); }
+.ai-send-button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0; border: none; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+.ai-send-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* 생성 사용량 요약(토큰·비용·시간) — 시안 .ai-usage-box */
 .ai-usage {
   margin: 2px 0 0;
