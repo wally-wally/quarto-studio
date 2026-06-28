@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { getActiveCredentials, loadSettings, type AiProvider } from "@/lib/ai/settings";
@@ -49,6 +49,10 @@ export function useAiChat(
   const [generating, setGenerating] = useState(false);
   const [aiEditedThisSession, setAiEditedThisSession] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const patchMessage = useCallback((id: string, patch: Partial<ChatMessage>) => {
     setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -70,7 +74,7 @@ export function useAiChat(
       }
 
       // history는 새 user 메시지를 포함해 직전 대화 텍스트만 보낸다.
-      const history = [...messages, userMsg].map((m) => ({ role: m.role, text: m.text }));
+      const history = [...messagesRef.current, userMsg].map((m) => ({ role: m.role, text: m.text }));
       const document = getContent();
 
       setMessages((cur) => [
@@ -168,7 +172,7 @@ export function useAiChat(
         abortRef.current = null;
       }
     },
-    [messages, getContent, editorViewRef, patchMessage],
+    [getContent, editorViewRef, patchMessage],
   );
 
   const stop = useCallback(() => {
