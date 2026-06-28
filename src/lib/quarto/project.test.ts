@@ -46,6 +46,15 @@ describe("buildQuartoProjectFiles", () => {
     expect(files.quartoYml).toContain("eval: true");
   });
 
+  it("코드 실행 시 경고(stderr UserWarning 등)를 출력 문서에 포함하지 않는다(warning: false)", () => {
+    const files = buildQuartoProjectFiles({
+      content: "# Report",
+      executeCode: true,
+    });
+
+    expect(files.quartoYml).toContain("warning: false");
+  });
+
   it("넓은 코드는 블록 안에서 가로 스크롤되고 복사 버튼은 우측 상단에 고정되도록 CSS를 주입한다", () => {
     const files = buildQuartoProjectFiles({
       content: "# Hello",

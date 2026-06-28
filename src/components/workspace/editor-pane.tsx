@@ -1,7 +1,8 @@
 import { Play, Sparkles } from "lucide-react";
 import type { EditorView } from "@codemirror/view";
 import CodeEditor from "./code-editor";
-import { AiDrawer, type AiGenerationHandlers } from "./ai-drawer";
+import { AiDrawer } from "./ai-drawer";
+import type { ChatMessage } from "./use-ai-chat";
 
 type EditorPaneProps = {
   documentId: string;
@@ -11,7 +12,10 @@ type EditorPaneProps = {
   executeCode: boolean;
   isBusy: boolean;
   aiDrawerOpen: boolean;
-  aiHandlers: AiGenerationHandlers;
+  generating: boolean;
+  messages: ChatMessage[];
+  onSendAi: (prompt: string, files: File[]) => void;
+  onStopAi: () => void;
   onToggleAiDrawer: () => void;
   onOpenSettings: () => void;
   onTitleChange: (value: string) => void;
@@ -30,7 +34,10 @@ export function EditorPane({
   executeCode,
   isBusy,
   aiDrawerOpen,
-  aiHandlers,
+  generating,
+  messages,
+  onSendAi,
+  onStopAi,
   onToggleAiDrawer,
   onOpenSettings,
   onTitleChange,
@@ -102,8 +109,11 @@ export function EditorPane({
         open={aiDrawerOpen}
         onToggle={onToggleAiDrawer}
         isBusy={isBusy}
+        generating={generating}
+        messages={messages}
+        onSend={onSendAi}
+        onStop={onStopAi}
         onOpenSettings={onOpenSettings}
-        handlers={aiHandlers}
       />
     </section>
   );

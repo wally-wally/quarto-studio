@@ -23,7 +23,12 @@ function disableExecutableCodeChunks(content: string): string {
 }
 
 export function buildQuartoProjectFiles(input: QuartoProjectInput) {
-  const executeConfig = input.executeCode ? ["execute:", "  eval: true"] : [];
+  // 코드 실행 시: 실행은 켜되(eval), 경고(matplotlib 글리프 경고 등 stderr UserWarning)는
+  // 렌더된 문서 출력에 섞이지 않게 한다(warning: false). #| echo: false는 코드만 숨길 뿐
+  // 경고는 별도 옵션이라, 보고서 산출물이 깔끔하도록 전역 기본으로 끈다.
+  const executeConfig = input.executeCode
+    ? ["execute:", "  eval: true", "  warning: false"]
+    : [];
 
   return {
     indexQmd: input.executeCode

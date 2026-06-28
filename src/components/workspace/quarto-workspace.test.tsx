@@ -4,6 +4,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuartoWorkspace } from "./quarto-workspace";
 import type { WorkspaceState } from "./types";
 
+vi.mock("./apply-edits-to-editor", () => ({
+  applyToolFrame: vi.fn(() => ({ kind: "write", failed: false })),
+}));
+
+function ndjson(frames: object[]): Response {
+  const body = frames.map((f) => JSON.stringify(f) + "\n").join("");
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(new TextEncoder().encode(body));
+      c.close();
+    },
+  });
+  return new Response(stream, { status: 200 });
+}
+
 // CodeMirror 에디터는 jsdom에서 contenteditable이라 직접 테스트가 어렵다.
 // 테스트에선 동등한 textarea(aria-label="QMD content")로 대체한다.
 vi.mock("./code-editor", () => ({
@@ -414,11 +429,30 @@ describe("QuartoWorkspace", () => {
     const user = userEvent.setup();
     renderWorkspace();
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
-    expect(screen.getByLabelText("AI 프롬프트")).toBeInTheDocument();
+    expect(screen.getByLabelText("AI 메시지 입력")).toBeInTheDocument();
   });
 
-  it("다른 문서로 이동하면 AI 드로어가 닫히고 프롬프트가 초기화된다", async () => {
+  it("다른 문서로 이동하면 AI 드로어가 닫히고 메시지가 초기화된다", async () => {
     const user = userEvent.setup();
+    window.localStorage.setItem(
+      "quarto-studio:ai-settings",
+      JSON.stringify({
+        provider: "anthropic",
+        anthropic: { apiKey: "sk", model: "claude-sonnet-4-6" },
+        openai: { apiKey: "", model: "" },
+      }),
+    );
+    // /api/ai/chat 스트림 응답 mock (delta + done — tool 프레임은 이 테스트에 불필요)
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        ndjson([
+          { type: "delta", text: "네, 도와드릴게요." },
+          { type: "done", usage: { inputTokens: 1, outputTokens: 1 }, provider: "anthropic", model: "claude-sonnet-4-6" },
+        ]),
+      ),
+    );
+
     const selectedWorkspace: WorkspaceState = {
       ...workspace,
       activeDocument: {
@@ -437,46 +471,46 @@ describe("QuartoWorkspace", () => {
     };
     renderWorkspace({ selectDocument: vi.fn(async () => selectedWorkspace) });
 
-    // 드로어 열고 프롬프트 입력
+    // 드로어 열기 → 메시지 전송 → 보낸 메시지가 채팅에 보인다
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
-    await user.type(screen.getByLabelText("AI 프롬프트"), "테스트 프롬프트");
-    expect(screen.getByLabelText("AI 프롬프트")).toHaveValue("테스트 프롬프트");
+    await user.type(screen.getByLabelText("AI 메시지 입력"), "초기화 테스트 메시지");
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("초기화 테스트 메시지")).toBeInTheDocument();
 
-    // 다른 문서로 이동 → 드로어가 닫힌다(프롬프트 textarea 사라짐)
+    // 다른 문서로 이동 → 드로어가 닫힌다(메시지 입력창 사라짐)
     await user.click(screen.getByRole("button", { name: "운영 리포트 열기" }));
     await waitFor(() => {
-      expect(screen.queryByLabelText("AI 프롬프트")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("AI 메시지 입력")).not.toBeInTheDocument();
     });
 
-    // 다시 열면 프롬프트가 비어 있다(key 리마운트로 초기화)
+    // 다시 열면 채팅이 비어 있다(resetChat으로 초기화):
+    // 보낸 메시지는 사라지고 빈 상태 안내가 다시 보인다.
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
-    expect(screen.getByLabelText("AI 프롬프트")).toHaveValue("");
+    expect(screen.getByLabelText("AI 메시지 입력")).toBeInTheDocument();
+    expect(screen.queryByText("초기화 테스트 메시지")).toBeNull();
+    expect(screen.getByText(/만들고 싶은/)).toBeTruthy();
   });
 
-  it("미확정 AI 작성분이 있으면 문서 이동 시 확인을 거친다(취소=머무름, 확인=이동)", async () => {
+  it("AI가 편집한 뒤 다른 문서로 이동하면 확인을 거친다(취소=머무름, 확인=이동)", async () => {
     const user = userEvent.setup();
     window.localStorage.setItem(
       "quarto-studio:ai-settings",
       JSON.stringify({
         provider: "anthropic",
-        anthropic: { apiKey: "test-key", model: "claude-sonnet-4-6" },
-        openai: { apiKey: "", model: "gpt-5.5" }
-      })
+        anthropic: { apiKey: "sk", model: "claude-sonnet-4-6" },
+        openai: { apiKey: "", model: "" },
+      }),
     );
-    // /api/ai/generate 스트림 응답 mock (delta + done)
+    // /api/ai/chat 스트림 응답 mock (delta + tool + done)
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
-        const enc = new TextEncoder();
-        const stream = new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(enc.encode('{"type":"delta","text":"AI가 작성한 내용"}\n'));
-            controller.enqueue(enc.encode('{"type":"done","usage":{"inputTokens":1,"outputTokens":2}}\n'));
-            controller.close();
-          }
-        });
-        return new Response(stream, { status: 200 });
-      })
+      vi.fn().mockResolvedValue(
+        ndjson([
+          { type: "delta", text: "문서를 만들었어요." },
+          { type: "tool", name: "write_document", input: { content: "# 새 문서" } },
+          { type: "done", usage: { inputTokens: 1, outputTokens: 1 }, provider: "anthropic", model: "claude-sonnet-4-6" },
+        ]),
+      ),
     );
 
     const selectedWorkspace: WorkspaceState = {
@@ -492,17 +526,22 @@ describe("QuartoWorkspace", () => {
         renderError: null,
         createdAt: "2026-06-24T01:00:00.000Z",
         updatedAt: "2026-06-24T01:00:00.000Z",
-        renderedAt: null
-      }
+        renderedAt: null,
+      },
     };
     const selectDocument = vi.fn(async () => selectedWorkspace);
     renderWorkspace({ selectDocument });
 
-    // AI 작성으로 에디터에 내용 생성 → '되돌리기' 가능(미확정) 상태
+    // AI 드로어 열기 → textarea에 입력 후 Enter로 전송 → AI가 편집(tool 프레임) → aiEditedThisSession=true
     await user.click(screen.getByRole("button", { name: "AI 작성 열기" }));
-    await user.type(screen.getByLabelText("AI 프롬프트"), "테스트");
-    await user.click(screen.getByRole("button", { name: "생성" }));
-    await screen.findByRole("button", { name: "되돌리기" });
+    const textarea = screen.getByLabelText("AI 메시지 입력");
+    await user.type(textarea, "테스트");
+    await user.keyboard("{Enter}");
+
+    // tool 프레임 처리 후 aiEditedThisSession이 true가 될 때까지 대기
+    await waitFor(() => expect(vi.mocked(global.fetch)).toHaveBeenCalled());
+    // done 프레임 처리 완료 (generating이 false로 전환)까지 대기
+    await waitFor(() => expect(screen.queryByRole("button", { name: "중단" })).not.toBeInTheDocument(), { timeout: 3000 });
 
     // 취소 → 머무름(이동 안 함)
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);

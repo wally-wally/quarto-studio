@@ -39,3 +39,23 @@ process.env.DATABASE_URL ??=
 afterEach(() => {
   globalThis.localStorage.clear();
 });
+
+// jsdom은 scrollIntoView를 구현하지 않으므로 no-op으로 채워 AI 메시지 목록 테스트에서
+// "is not a function" 오류를 막는다. Node(비-jsdom) 환경에선 Element 자체가 없으므로 가드.
+if (typeof Element !== "undefined") {
+  Element.prototype.scrollIntoView = () => {};
+}
+
+// jsdom은 Range.getClientRects/getBoundingClientRect를 구현하지 않아, CodeMirror가
+// 스트리밍 중 scrollIntoView로 텍스트 좌표를 측정(measure)할 때 비동기로 던진다.
+// 레이아웃을 단언하지 않으므로 빈 결과 스텁으로 헤드리스 측정을 무해화한다.
+if (typeof Range !== "undefined") {
+  if (!Range.prototype.getClientRects) {
+    Range.prototype.getClientRects = (() => []) as unknown as () => DOMRectList;
+  }
+  if (!Range.prototype.getBoundingClientRect) {
+    Range.prototype.getBoundingClientRect = (() => ({
+      x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0, toJSON: () => ({}),
+    })) as unknown as () => DOMRect;
+  }
+}
