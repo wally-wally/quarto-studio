@@ -91,6 +91,7 @@ export function EditorPane({
         </div>
       </div>
       <CodeEditor
+        key={documentId}
         value={content}
         onChange={onContentChange}
         readOnly={isBusy}
