@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import { Paperclip, Sparkles, X } from "lucide-react";
-import { getActiveCredentials, loadSettings } from "@/lib/ai/settings";
+import { getActiveCredentials, loadSettings, type AiProvider } from "@/lib/ai/settings";
+import { estimateCostUsd, formatUsd, formatDuration } from "@/lib/ai/pricing";
 import {
   validatePrompt,
   validateAttachments,
@@ -11,6 +12,17 @@ import {
   MAX_TOTAL_BYTES,
   ALLOWED_EXTENSIONS,
 } from "@/lib/ai/validation";
+
+type GenerationResult = {
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number | null;
+  elapsedMs: number;
+};
+
+type StreamFrame =
+  | { type: "delta"; text: string }
+  | { type: "done"; usage: { inputTokens: number; outputTokens: number }; provider?: AiProvider; model?: string };
 
 export type AiGenerationHandlers = {
   onStart: () => void;
@@ -34,12 +46,21 @@ function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+// 파일별 용량: 1MB 미만은 KB, 이상은 MB(소수 1자리)로 표기한다.
+function formatSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)}KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: AiDrawerProps) {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [generating, setGenerating] = useState(false);
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<GenerationResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
@@ -79,11 +100,13 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
 
     setError(null);
     setFinished(false);
+    setLastResult(null);
     setGenerating(true);
     handlers.onStart();
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const startedAt = performance.now();
 
     try {
       const fd = new FormData();
@@ -109,15 +132,49 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = "";
       let accumulated = "";
+      const collected: {
+        usage: { inputTokens: number; outputTokens: number } | null;
+        provider: AiProvider;
+        model: string;
+      } = { usage: null, provider: creds.provider, model: creds.model };
+
+      const handleFrame = (line: string) => {
+        if (!line) return;
+        const frame = JSON.parse(line) as StreamFrame;
+        if (frame.type === "delta") {
+          accumulated += frame.text;
+          handlers.onChunk(accumulated);
+        } else if (frame.type === "done") {
+          collected.usage = frame.usage;
+          if (frame.provider) collected.provider = frame.provider;
+          if (frame.model) collected.model = frame.model;
+        }
+      };
+
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        handlers.onChunk(accumulated);
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          handleFrame(buffer.slice(0, nl));
+          buffer = buffer.slice(nl + 1);
+        }
       }
+      handleFrame(buffer.trim()); // 개행 없는 잔여 라인 방어
+
       handlers.onFinish();
       setFinished(true);
+      if (collected.usage) {
+        setLastResult({
+          inputTokens: collected.usage.inputTokens,
+          outputTokens: collected.usage.outputTokens,
+          costUsd: estimateCostUsd(collected.provider, collected.model, collected.usage),
+          elapsedMs: performance.now() - startedAt,
+        });
+      }
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
         handlers.onFinish();
@@ -139,16 +196,25 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
   function handleRevert() {
     handlers.onRevert();
     setFinished(false);
+    setLastResult(null);
   }
 
   return (
     <div className={`ai-drawer ${open ? "open" : ""}`}>
-      <button type="button" className="ai-drawer-toggle" aria-expanded={open} onClick={onToggle}>
-        <Sparkles size={14} aria-hidden="true" />
-        AI 작성
-      </button>
-
       {open && (
+        <>
+        <div className="ai-drawer-header">
+          <Sparkles size={15} className="ai-drawer-icon" aria-hidden="true" />
+          <span className="ai-drawer-title">AI 작성</span>
+          <button
+            type="button"
+            className="ai-drawer-close"
+            aria-label="AI 작성 닫기"
+            onClick={onToggle}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
         <div className="ai-drawer-body">
           <label className="ai-field">
             <span className="ai-field-label">AI 프롬프트</span>
@@ -193,7 +259,7 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
               {files.map((file, index) => (
                 <li className="ai-chip" key={`${file.name}-${file.size}-${index}`}>
                   <span className="ai-chip-name">{file.name}</span>
-                  <span className="ai-chip-size">{formatMB(file.size)}MB</span>
+                  <span className="ai-chip-size">{formatSize(file.size)}</span>
                   <button
                     type="button"
                     aria-label={`${file.name} 제거`}
@@ -234,7 +300,32 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
               </button>
             )}
           </div>
+
+          {lastResult && (
+            <dl className="ai-usage" aria-label="생성 사용량">
+              <div>
+                <dt>토큰</dt>
+                <dd>
+                  {(lastResult.inputTokens + lastResult.outputTokens).toLocaleString()}
+                  <span className="ai-usage-sub">
+                    {" "}
+                    (입력 {lastResult.inputTokens.toLocaleString()} · 출력{" "}
+                    {lastResult.outputTokens.toLocaleString()})
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>비용(약)</dt>
+                <dd>{lastResult.costUsd === null ? "—" : formatUsd(lastResult.costUsd)}</dd>
+              </div>
+              <div>
+                <dt>소요 시간</dt>
+                <dd>{formatDuration(lastResult.elapsedMs)}</dd>
+              </div>
+            </dl>
+          )}
         </div>
+        </>
       )}
     </div>
   );

@@ -147,6 +147,27 @@ describe("document repository", () => {
     expect(job?.artifactId).toBeNull();
   });
 
+  it("cancelDocumentRenders는 queued/running 잡을 canceled로 표시하고 문서 상태를 idle로 되돌린다", async () => {
+    const ownerId = await createTestUser();
+    const doc = await repository.getOrCreateSeedDocument(ownerId);
+    const { jobId } = await repository.enqueueRenderJob({
+      ownerId,
+      documentId: doc.id,
+      contentSnapshot: doc.content,
+      executeCode: false,
+    });
+
+    const { canceledCount } = await repository.cancelDocumentRenders(ownerId, doc.id);
+    expect(canceledCount).toBe(1);
+
+    const job = await repository.getRenderJob(jobId);
+    expect(job?.status).toBe("canceled");
+
+    // queued 잡이 사라지므로 무한 '렌더링 중'에서 벗어나 idle로 복구된다.
+    const refreshed = await repository.getDocument(ownerId, doc.id);
+    expect(refreshed?.renderStatus).toBe("idle");
+  });
+
   it("문서 삭제 시 render_jobs도 cascade 삭제된다", async () => {
     const ownerId = await createTestUser();
     const doc = await repository.getOrCreateSeedDocument(ownerId);

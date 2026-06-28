@@ -67,3 +67,11 @@ export async function getRenderJobAction(jobId: string): Promise<RenderJobRecord
   await requireUser();
   return createAppDocumentService().getRenderJob(jobId);
 }
+
+export async function cancelRenderAction(documentId: string): Promise<WorkspaceState> {
+  const user = await requireUser();
+  const workspace = await createAppDocumentService().cancelRender(user.id, documentId);
+  revalidatePath("/");
+
+  return workspace;
+}

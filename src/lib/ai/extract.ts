@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { parseOffice } from "officeparser";
+import { extractTextViaService } from "./convert-client";
 import { getExtension } from "./validation";
 import type { AiProvider } from "./settings";
 
@@ -27,11 +27,6 @@ function truncate(text: string): string {
   return text.slice(0, MAX_EXTRACTED_CHARS) + "\n…(이하 생략)";
 }
 
-// officeparser는 Buffer/Uint8Array를 받는다. Uint8Array view를 정확한 Buffer로 변환.
-function toBuffer(bytes: Uint8Array): Buffer {
-  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
-
 function xlsxToText(bytes: Uint8Array): string {
   const wb = XLSX.read(bytes, { type: "array" });
   return wb.SheetNames.map((name) => `# 시트: ${name}\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`).join("\n\n");
@@ -47,16 +42,17 @@ export async function prepareAttachments(files: InputFile[], provider: AiProvide
     } else if (INLINE_TEXT_EXTS.has(ext)) {
       parts.push({ kind: "text", name: file.name, text: truncate(new TextDecoder().decode(file.bytes)) });
     } else if (ext === "xlsx") {
+      // SheetJS는 순수 JS·경량이라 인프로세스로 유지(서비스 장애와 무관, 네트워크 왕복 없음).
       parts.push({ kind: "text", name: file.name, text: truncate(xlsxToText(file.bytes)) });
     } else if (ext === "pdf") {
       if (provider === "anthropic") {
         parts.push({ kind: "pdf", name: file.name, bytes: file.bytes });
       } else {
-        const text = (await parseOffice(toBuffer(file.bytes), { fileType: "pdf" })).toText();
+        const text = await extractTextViaService(file.bytes, file.name);
         parts.push({ kind: "text", name: file.name, text: truncate(text) });
       }
     } else if (ext === "docx" || ext === "pptx") {
-      const text = (await parseOffice(toBuffer(file.bytes), { fileType: ext })).toText();
+      const text = await extractTextViaService(file.bytes, file.name);
       parts.push({ kind: "text", name: file.name, text: truncate(text) });
     }
     // 그 외 확장자는 검증 단계(validation)에서 이미 차단됨.

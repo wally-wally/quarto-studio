@@ -13,6 +13,7 @@ type CodeEditorProps = {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  onCreateEditor?: (view: EditorView) => void;
 };
 
 // ```{python} 같은 Quarto 실행 청크도 표준 펜스(```python)처럼 언어 하이라이팅되도록,
@@ -26,6 +27,7 @@ export default function CodeEditor({
   value,
   onChange,
   readOnly = false,
+  onCreateEditor,
 }: CodeEditorProps) {
   const extensions = useMemo(
     () => [
@@ -46,6 +48,7 @@ export default function CodeEditor({
       height="100%"
       theme={nightOwl}
       extensions={extensions}
+      onCreateEditor={onCreateEditor ? (view) => onCreateEditor(view) : undefined}
       basicSetup={{
         lineNumbers: true,
         foldGutter: false,

@@ -17,14 +17,26 @@ export function resolveModel(provider: AiProvider, apiKey: string, model: string
 
 // 추론 effort는 medium 고정. 프로바이더별 표현이 다르다:
 // - OpenAI: reasoningEffort "medium" (추론 모델에 적용, 그 외엔 무시됨).
-// - Anthropic: extended thinking을 medium 예산으로 활성화. thinking(추론) 토큰은
-//   텍스트 스트림에서 제외되므로 에디터에는 최종 본문만 스트리밍된다.
-//   선택한 모델이 thinking을 지원하지 않으면 이 블록을 비활성화한다.
-export const ANTHROPIC_THINKING_BUDGET = 4_096;
+// - Anthropic: adaptive thinking을 쓴다. (Opus 4.8/4.7은 고정 예산 budgetTokens를
+//   400으로 거부하므로 adaptive로 통일.) thinking(추론) 토큰은 텍스트 스트림에서
+//   제외되므로 에디터에는 최종 본문만 스트리밍된다. adaptive를 지원하지 않는
+//   모델(haiku 등)은 thinking을 설정하지 않는다.
+const ANTHROPIC_ADAPTIVE_THINKING_MODELS = new Set([
+  "claude-opus-4-8",
+  "claude-opus-4-7",
+  "claude-opus-4-6",
+  "claude-sonnet-4-6",
+]);
 
-export function buildProviderOptions(provider: AiProvider): Record<string, Record<string, JSONValue>> {
+export function buildProviderOptions(
+  provider: AiProvider,
+  model: string,
+): Record<string, Record<string, JSONValue>> {
   if (provider === "openai") {
     return { openai: { reasoningEffort: "medium" } };
   }
-  return { anthropic: { thinking: { type: "enabled", budgetTokens: ANTHROPIC_THINKING_BUDGET } } };
+  if (ANTHROPIC_ADAPTIVE_THINKING_MODELS.has(model)) {
+    return { anthropic: { thinking: { type: "adaptive" } } };
+  }
+  return {};
 }

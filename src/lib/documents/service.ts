@@ -18,6 +18,7 @@ type DocumentRepository = {
   updateDocument(ownerId: string, input: SaveDocumentInput): Promise<DocumentRecord>;
   enqueueRenderJob(input: { ownerId: string; documentId: string; contentSnapshot: string; executeCode: boolean }): Promise<{ jobId: string }>;
   getRenderJob(jobId: string): Promise<RenderJobRecord | null>;
+  cancelDocumentRenders(ownerId: string, documentId: string): Promise<{ canceledCount: number }>;
 };
 
 export type WorkspaceState = {
@@ -110,6 +111,11 @@ export function createDocumentService({ repository }: Dependencies) {
 
     async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
       return repository.getRenderJob(jobId);
+    },
+
+    async cancelRender(ownerId: string, documentId: string): Promise<WorkspaceState> {
+      await repository.cancelDocumentRenders(ownerId, documentId);
+      return buildWorkspace(ownerId, assertDocument(await repository.getDocument(ownerId, documentId), documentId));
     },
   };
 }

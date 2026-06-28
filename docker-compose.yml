@@ -47,6 +47,17 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # 첨부 문서(docx/pptx/pdf) → 텍스트 변환 사이드카. 내부 네트워크 전용(외부 포트 미노출).
+  convert:
+    build:
+      context: ./convert
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   web:
     build:
       context: .
@@ -54,6 +65,7 @@ services:
     environment:
       DATABASE_URL: postgres://quarto:quarto@postgres:5432/quarto_studio
       ARTIFACT_DIR: /artifacts
+      CONVERT_SERVICE_URL: http://convert:8000
     ports:
       - "3000:3000"
     volumes:
@@ -62,6 +74,8 @@ services:
       migrate:
         condition: service_completed_successfully
       postgres:
+        condition: service_healthy
+      convert:
         condition: service_healthy
     restart: unless-stopped
 

@@ -1,4 +1,4 @@
-import { AlertCircle, Download, FileText, RefreshCw } from "lucide-react";
+import { AlertCircle, Download, FileText, RefreshCw, X } from "lucide-react";
 import type { DocumentRecord } from "@/lib/documents/types";
 
 type PreviewPaneProps = {
@@ -6,6 +6,7 @@ type PreviewPaneProps = {
   isBusy: boolean;
   isRendering: boolean;
   onRender: () => void;
+  onCancelRender: () => void;
   onDownload: () => void;
 };
 
@@ -26,6 +27,7 @@ export function PreviewPane({
   isBusy,
   isRendering,
   onRender,
+  onCancelRender,
   onDownload
 }: PreviewPaneProps) {
   return (
@@ -66,6 +68,18 @@ export function PreviewPane({
             <span className="rendering-indicator" aria-live="polite">
               렌더링 중…
             </span>
+          ) : null}
+          {isRendering ? (
+            // 중단 버튼은 isBusy로 비활성화하지 않는다 — 무한 렌더에서 빠져나오는 탈출구.
+            <button
+              className="ghost-button preview-cancel"
+              type="button"
+              onClick={onCancelRender}
+              aria-label="렌더 중단"
+            >
+              <X size={16} aria-hidden="true" />
+              중단
+            </button>
           ) : null}
         </div>
       </div>

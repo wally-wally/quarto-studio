@@ -3,12 +3,14 @@ import { buildProviderOptions, resolveModel } from "./provider";
 
 describe("buildProviderOptions", () => {
   it("openai는 reasoningEffort medium", () => {
-    expect(buildProviderOptions("openai")).toEqual({ openai: { reasoningEffort: "medium" } });
+    expect(buildProviderOptions("openai", "gpt-5.5")).toEqual({ openai: { reasoningEffort: "medium" } });
   });
-  it("anthropic은 thinking 예산을 활성화한다", () => {
-    const opts = buildProviderOptions("anthropic") as { anthropic: { thinking: { type: string; budgetTokens: number } } };
-    expect(opts.anthropic.thinking.type).toBe("enabled");
-    expect(opts.anthropic.thinking.budgetTokens).toBeGreaterThan(0);
+  it("adaptive 지원 Anthropic 모델은 adaptive thinking을 쓴다(Opus 4.8 포함)", () => {
+    expect(buildProviderOptions("anthropic", "claude-opus-4-8")).toEqual({ anthropic: { thinking: { type: "adaptive" } } });
+    expect(buildProviderOptions("anthropic", "claude-sonnet-4-6")).toEqual({ anthropic: { thinking: { type: "adaptive" } } });
+  });
+  it("adaptive 미지원 모델(haiku)은 thinking을 설정하지 않는다", () => {
+    expect(buildProviderOptions("anthropic", "claude-haiku-4-5")).toEqual({});
   });
 });
 

@@ -3,6 +3,7 @@ import { createAppDocumentService } from "@/lib/db/app-service";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import {
+  cancelRenderAction,
   createDocumentAction,
   deleteDocumentAction,
   getRenderJobAction,
@@ -31,6 +32,7 @@ export default async function HomePage() {
       renameDocument={renameDocumentAction}
       deleteDocument={deleteDocumentAction}
       getRenderJob={getRenderJobAction}
+      cancelRender={cancelRenderAction}
     />
   );
 }

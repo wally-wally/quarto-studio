@@ -22,11 +22,13 @@ flowchart LR
     WK["worker · tsx<br/>render-worker"]
     RC["일회용 렌더 컨테이너<br/>quarto-render:dev<br/>Quarto + Py/R/Julia + 한글폰트"]
     AR[["아티팩트 스토리지<br/>ARTIFACT_DIR"]]
+    CV["convert · FastAPI<br/>:8000<br/>docx/pptx/pdf→텍스트"]
     W <-->|"문서·잡·세션"| PG
     WK -->|"잡 클레임<br/>FOR UPDATE SKIP LOCKED"| PG
     WK -->|"docker run --rm<br/>--network none --cap-drop ALL"| RC
     RC -->|"index.html"| AR
     W -->|"/preview/:id"| AR
+    W -->|"AI docx/pptx/pdf 첨부 추출"| CV
   end
   B -->|"작성 · 렌더 요청"| W
   B -->|"미리보기 iframe"| W
@@ -35,6 +37,7 @@ flowchart LR
 - **web**은 문서를 Postgres에 저장하고, 렌더 요청을 `render_jobs` 큐에 넣는다.
 - **worker**는 큐에서 잡을 집어(`FOR UPDATE SKIP LOCKED`) 일회용 렌더 컨테이너를 띄우고, 결과 HTML을 아티팩트로 저장한다.
 - 코드 청크는 호스트가 아니라 **렌더 컨테이너 안에서** 실행된다(샌드박스: `--network none`, `--cap-drop ALL`, 메모리/CPU/PID 제한).
+- **convert**는 AI 작성에 첨부한 docx/pptx/pdf를 텍스트로 변환하는 사이드카다(markitdown 기반). 이미지·텍스트·xlsx·Anthropic PDF는 web 인프로세스로 처리한다.
 
 ## 빠른 시작
 
@@ -42,7 +45,7 @@ flowchart LR
 
 ```bash
 docker build -t quarto-render:dev docker/render   # 렌더 이미지 (최초 1회, ~5.5GB)
-docker compose up --build                          # postgres + migrate + web + worker
+docker compose up --build                          # postgres + migrate + web + worker + convert
 # http://localhost:3000 → 회원가입 → 작성 → Render
 ```
 
@@ -55,6 +58,7 @@ docker compose up --build                          # postgres + migrate + web + 
 | **Docker Desktop** | 항상 | DB·렌더 이미지·일회용 컨테이너 구동 |
 | **Node.js 24** (`.nvmrc`) | 개발 모드 | `nvm install && nvm use` |
 | **pnpm 9.15.9** | 개발 모드 | `corepack prepare pnpm@9.15.9 --activate` |
+| **Python 3.13+** | 개발 모드 + AI에 docx/pptx/pdf 첨부 시 | convert 사이드카용(`convert/` venv). Compose 경로는 불필요 |
 
 > 호스트에 Python/R/Julia/Quarto를 **따로 설치하지 않는다.** 전부 렌더 이미지(`docker/render/`) 안에 있다.
 
@@ -66,6 +70,7 @@ docker compose up --build                          # postgres + migrate + web + 
 | `ARTIFACT_DIR` | `./data/artifacts` | 렌더된 HTML 아티팩트 저장 위치(web·worker 공유) |
 | `QUARTO_RENDER_TIMEOUT_MS` | `60000` | 렌더 프로세스 제한 시간(ms) |
 | `QUARTO_RENDER_IMAGE` | `quarto-render:dev` | 워커가 사용할 렌더 이미지 태그 |
+| `CONVERT_SERVICE_URL` | `http://localhost:8000` | AI 첨부(docx/pptx/pdf) 텍스트 추출 사이드카 URL |
 
 Compose 환경에서는 위 값들이 서비스에 맞게 자동 주입된다(예: `DATABASE_URL`의 호스트가 `postgres`).
 
