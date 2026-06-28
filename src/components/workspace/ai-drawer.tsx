@@ -201,12 +201,20 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
 
   return (
     <div className={`ai-drawer ${open ? "open" : ""}`}>
-      <button type="button" className="ai-drawer-toggle" aria-expanded={open} onClick={onToggle}>
-        <Sparkles size={14} aria-hidden="true" />
-        AI 작성
-      </button>
-
       {open && (
+        <>
+        <div className="ai-drawer-header">
+          <Sparkles size={15} className="ai-drawer-icon" aria-hidden="true" />
+          <span className="ai-drawer-title">AI 작성</span>
+          <button
+            type="button"
+            className="ai-drawer-close"
+            aria-label="AI 작성 닫기"
+            onClick={onToggle}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
         <div className="ai-drawer-body">
           <label className="ai-field">
             <span className="ai-field-label">AI 프롬프트</span>
@@ -317,6 +325,7 @@ export function AiDrawer({ open, onToggle, isBusy, onOpenSettings, handlers }: A
             </dl>
           )}
         </div>
+        </>
       )}
     </div>
   );
