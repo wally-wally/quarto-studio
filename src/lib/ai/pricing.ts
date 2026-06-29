@@ -7,6 +7,8 @@ type Rate = { input: number; output: number }; // 1M 토큰당 USD
 // 모델별 요금(1M 토큰당 USD). 기준일 2026-06.
 // 표시 비용은 추정치이며, 요율 변동 시 이 표만 갱신하면 된다.
 const PRICING: Record<AiProvider, Record<string, Rate>> = {
+  // AI Hub는 내부 게이트웨이라 요율을 별도 관리하지 않는다(비용은 "—"로 표기).
+  aihub: {},
   anthropic: {
     "claude-opus-4-8": { input: 5, output: 25 },
     "claude-sonnet-4-6": { input: 3, output: 15 },

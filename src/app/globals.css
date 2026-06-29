@@ -1558,6 +1558,7 @@ input {
   border-radius: 8px;
   padding: 3px;
 }
+.settings-segment-3 { grid-template-columns: repeat(3, 1fr); }
 .settings-tab {
   padding: 8px 0;
   border: none;
@@ -1574,6 +1575,7 @@ input {
 .settings-tab.active { background: var(--accent); color: #fff; }
 .settings-key-row { display: flex; gap: 8px; }
 .settings-note { font-size: 11px; color: var(--fg-subtle); margin: 0; line-height: 1.55; }
+.settings-error { font-size: 11px; color: var(--danger); margin: 0; line-height: 1.55; }
 /* 푸터(저장/닫기) 가운데 정렬 유지 — 사용자 선택(시안의 우측 정렬 대신) */
 .settings-modal .ai-actions { justify-content: center; }
 /* 설정 모달 입력: Deep Navy 시안 (bg-deep + border-2 + 포커스 글로우 링) */

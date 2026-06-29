@@ -1,12 +1,15 @@
-export type AiProvider = "anthropic" | "openai";
+export type AiProvider = "aihub" | "anthropic" | "openai";
 export type ProviderConfig = { apiKey: string; model: string };
 export type AiSettings = {
   provider: AiProvider;
+  aihub: ProviderConfig;
   anthropic: ProviderConfig;
   openai: ProviderConfig;
 };
 
 export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: string }[]> = {
+  // AI Hub는 /v1/models에서 모델을 동적으로 불러오므로 정적 폴백을 두지 않는다.
+  aihub: [],
   anthropic: [
     { label: "Claude Opus 4.8 (고품질)", value: "claude-opus-4-8" },
     { label: "Claude Sonnet 4.6 (균형, 추천)", value: "claude-sonnet-4-6" },
@@ -23,6 +26,7 @@ export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: stri
 
 export const DEFAULT_SETTINGS: AiSettings = {
   provider: "anthropic",
+  aihub: { apiKey: "", model: "claude-sonnet" },
   anthropic: { apiKey: "", model: "claude-sonnet-4-6" },
   openai: { apiKey: "", model: "gpt-5.5" },
 };
@@ -36,7 +40,9 @@ export function loadSettings(): AiSettings {
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw) as Partial<AiSettings>;
     return {
-      provider: parsed.provider === "openai" ? "openai" : "anthropic",
+      provider:
+        parsed.provider === "openai" || parsed.provider === "aihub" ? parsed.provider : "anthropic",
+      aihub: { ...DEFAULT_SETTINGS.aihub, ...parsed.aihub },
       anthropic: { ...DEFAULT_SETTINGS.anthropic, ...parsed.anthropic },
       openai: { ...DEFAULT_SETTINGS.openai, ...parsed.openai },
     };
@@ -51,6 +57,6 @@ export function saveSettings(settings: AiSettings): void {
 }
 
 export function getActiveCredentials(settings: AiSettings): ProviderConfig & { provider: AiProvider } {
-  const config = settings.provider === "openai" ? settings.openai : settings.anthropic;
+  const config = settings[settings.provider];
   return { provider: settings.provider, apiKey: config.apiKey, model: config.model };
 }
