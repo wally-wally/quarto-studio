@@ -85,6 +85,18 @@ describe("POST /api/ai/chat", () => {
     expect(res.status).toBe(400);
   });
 
+  it("지원하지 않는 프로바이더는 400", async () => {
+    const res = await POST(makeRequest({ key: "sk", fields: { ...validFields, provider: "grok" } }));
+    expect(res.status).toBe(400);
+  });
+
+  it("aihub 프로바이더도 허용된다(200)", async () => {
+    const res = await POST(
+      makeRequest({ key: "hub", fields: { ...validFields, provider: "aihub", model: "claude-sonnet" } }),
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("마지막 메시지가 user가 아니면 400", async () => {
     const res = await POST(
       makeRequest({

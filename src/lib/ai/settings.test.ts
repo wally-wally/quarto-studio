@@ -20,13 +20,29 @@ describe("settings", () => {
     expect(loadSettings()).toEqual(next);
   });
 
+  it("AI Hub 프로바이더 설정이 라운드트립된다", () => {
+    const next = {
+      ...DEFAULT_SETTINGS,
+      provider: "aihub" as const,
+      aihub: { apiKey: "hub-key", model: "gpt-5" },
+    };
+    saveSettings(next);
+    expect(loadSettings()).toEqual(next);
+  });
+
   it("getActiveCredentials는 활성 프로바이더 자격을 고른다", () => {
     const settings = {
       provider: "openai" as const,
+      aihub: { apiKey: "hub", model: "claude-sonnet" },
       anthropic: { apiKey: "ant", model: "claude-sonnet-4-6" },
       openai: { apiKey: "oai", model: "gpt-5.2" },
     };
     expect(getActiveCredentials(settings)).toEqual({ provider: "openai", apiKey: "oai", model: "gpt-5.2" });
+    expect(getActiveCredentials({ ...settings, provider: "aihub" })).toEqual({
+      provider: "aihub",
+      apiKey: "hub",
+      model: "claude-sonnet",
+    });
   });
 
   it("깨진 JSON이면 기본값으로 폴백한다", () => {
