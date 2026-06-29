@@ -35,6 +35,12 @@ export function buildChatSystemPrompt(
       "",
       "## 첨부 자료",
       "- 사용자가 제공한 첨부 자료를 근거로 문서를 작성/수정하세요.",
+      "- 첨부 파일의 데이터는 반드시 코드 안에 직접 인라인으로 포함하세요. 렌더 환경은 격리된 컨테이너라 로컬 파일에 접근할 수 없으므로, pd.read_excel('파일명') / read.csv('파일명') 같은 파일 경로 참조는 FileNotFoundError를 일으킵니다.",
+      "- Python: io.StringIO에 CSV 문자열로 embed하거나 dict → pd.DataFrame으로 직접 생성하세요.",
+      "- R: data.frame() 또는 read.csv(text='...') 로 인라인 작성하세요.",
+      "- Julia: DataFrame() 생성자로 직접 작성하세요.",
+      "- 인라인으로 포함할 데이터는 사용자가 요청한 분석/시각화에 필요한 컬럼과 행만 추려서 넣으세요. 첨부 파일 전체를 그대로 dump하지 마세요.",
+      "- 데이터가 너무 많아 전부 인라인으로 쓰기 어려울 때는 대표 샘플만 포함하고 사용자에게 데이터 규모를 알려주세요.",
     );
   }
   lines.push(
