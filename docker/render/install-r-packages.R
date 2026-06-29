@@ -1,5 +1,5 @@
 options(
-  repos = c(CRAN = "https://packagemanager.posit.co/cran/2026-06-01"),
+  repos = c(CRAN = "https://cloud.r-project.org"),
   Ncpus = max(1L, parallel::detectCores())
 )
 pkgs <- c(

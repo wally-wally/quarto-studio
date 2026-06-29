@@ -56,6 +56,8 @@ RUN set -eux; \
     mv "/opt/julia-${JULIA_VERSION}" /opt/julia; \
     julia --version
 COPY julia/Project.toml julia/Manifest.toml /opt/julia-env/
+# pkg.julialang.org 대신 GitHub 직접 접근으로 레지스트리 다운로드
+ENV JULIA_PKG_SERVER=""
 RUN julia -e 'using Pkg; Pkg.Registry.add("General"); Pkg.resolve(); Pkg.instantiate(); Pkg.precompile()' \
     && julia -e 'using IJulia; IJulia.installkernel("Julia")' \
     && chmod -R a+rX /opt/julia-depot
