@@ -57,8 +57,6 @@ export function buildQuartoProjectFiles(input: QuartoProjectInput) {
       "        <style>",
       "        div.sourceCode { position: relative; }",
       "        div.sourceCode > pre.sourceCode { position: static; overflow-x: auto !important; }",
-      "        /* 작성자가 헤딩에 직접 번호를 쓰는 경우가 많아 Quarto 자동 섹션 번호는 숨긴다. */",
-      "        span.header-section-number, .toc-section-number { display: none; }",
       "        </style>",
       // 본문 폰트를 Pretendard(가변)로. 미리보기(iframe)와 다운로드 HTML 모두 동일 산출물이라
       // CDN <link> 하나로 둘 다 적용된다. 코드(monospace)는 건드리지 않는다.

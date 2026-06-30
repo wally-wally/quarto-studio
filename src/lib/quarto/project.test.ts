@@ -79,14 +79,6 @@ describe("buildQuartoProjectFiles", () => {
       '--bs-body-font-family: "Pretendard Variable"',
     );
   });
-
-  it("Quarto 자동 섹션 번호(span.header-section-number)를 숨긴다", () => {
-    const files = buildQuartoProjectFiles({ content: "# Hello", executeCode: false });
-
-    expect(files.quartoYml).toContain(
-      "span.header-section-number, .toc-section-number { display: none; }",
-    );
-  });
 });
 
 describe("buildQuartoRenderCommand", () => {
