@@ -3,12 +3,10 @@
 ## 사전 조건
 
 - Docker Engine 24+ / Docker Compose v2
-- 호스트에 `quarto-render:dev` 이미지 빌드 완료
-
-```bash
-# 렌더 이미지 빌드 (최초 1회)
-docker build -t quarto-render:dev docker/render
-```
+- Daytona 계정·API 키 (`DAYTONA_API_KEY`)
+- 렌더용 Daytona 스냅샷 준비 완료 — 로컬에 이미지를 빌드할 필요는 없다. 최초 1회
+  `./scripts/daytona-snapshot.sh` 로 서버사이드 빌드하고 `pnpm smoke:daytona` 로 검증한다
+  (자세한 절차는 아래 "보안 / 격리" 참고).
 
 ## 전체 스택 실행
 
@@ -34,10 +32,8 @@ SEED_USER_EMAIL=me@example.com node scripts/seed-examples.mjs
 |------|--------|------|
 | `DATABASE_URL` | `postgres://quarto:quarto@postgres:5432/quarto_studio` | PostgreSQL 연결 URL |
 | `ARTIFACT_DIR` | `/artifacts` | 렌더 결과물 저장 경로 (named volume `artifacts`) |
-| `DOCKER_HOST` | `tcp://socket-proxy:2375` | Docker API 엔드포인트 (워커) |
-| `QUARTO_RENDER_IMAGE` | `quarto-render:dev` | 일회용 렌더 컨테이너 이미지 |
-| `RENDER_WORK_DIR` | `/work-root` | 워커가 잡 파일을 쓰는 경로 (named volume `render-work`) |
-| `RENDER_WORK_VOLUME` | `quarto-studio_render-work` | 렌더 컨테이너가 마운트할 named volume 이름 |
+| `DAYTONA_API_KEY` | (비밀 — .env.local/배포 시크릿) | Daytona API 키. **git 커밋 절대 금지** |
+| `DAYTONA_SNAPSHOT` | `quarto-render-1` | 렌더용 Daytona 스냅샷 이름 (`scripts/daytona-snapshot.sh`로 생성) |
 | `QUARTO_RENDER_TIMEOUT_MS` | `60000` | 렌더 타임아웃 (ms) |
 | `RENDER_QUOTA` | `3` | 사용자별 동시 렌더(queued+running) 상한 |
 
@@ -55,20 +51,20 @@ docker run --rm -v quarto-studio_artifacts:/a -v "$PWD/backups/<날짜>":/b alpi
 
 ## 보안 / 격리
 
-일회용 렌더 컨테이너에 적용된 격리(워커 `docker run` 플래그):
+렌더(사용자 코드 실행)는 Daytona 관리형 sandbox에서 수행된다. 워커·웹 서버에서는
+어떤 사용자 코드도 실행되지 않는다.
 
-| 플래그 | 효과 |
-|--------|------|
-| `--network none` | 외부 네트워크 차단(코드가 외부로 못 나감) |
-| `--cap-drop ALL` + `--security-opt no-new-privileges` | 권한 상승 차단 |
-| `--pids-limit 256` · `--memory 1g` · `--cpus 1.5` | 자원 고갈 방지 |
-| `--rm` (일회용) | 렌더마다 새 컨테이너, 끝나면 폐기 |
-| docker-socket-proxy | 워커의 Docker API를 컨테이너 생성/조회로 최소화(호스트 소켓 직접 노출 안 함) |
+| 항목 | 내용 |
+|---|---|
+| 실행 격리 | 잡당 일회용 ephemeral sandbox (종료 시 삭제, 상태 잔존 없음) |
+| 네트워크 | `networkBlockAll: true` — sandbox 내부에서 외부 통신 불가 (기존 `--network none` 동급) |
+| 리소스 | 스냅샷 정의: 2 vCPU / 2GiB RAM / 10GiB 디스크 |
+| 타임아웃 | ① Daytona exec timeout(60s) ② 워커 워치독(+10s) ③ autoStopInterval 5분 |
+| 고아 정리 | 워커 크래시 시 autoStopInterval이 5분 내 sandbox 자동 정지·삭제(과금 중단) |
+| 워커 권한 | Docker 소켓 접근 불필요 (socket-proxy 제거) — 아웃바운드 HTTPS(Daytona API)만 필요 |
 
-**남은 하드닝(후속):** `--read-only` 루트FS + 비루트 `--user`. 비루트 실행 시 렌더 이미지의
-조정이 필요함 — IJulia 커널이 `/root/.local`에 설치되어 비루트가 못 찾고, matplotlib 폰트
-캐시(`MPLCONFIGDIR`)·Julia depot의 쓰기 경로를 tmpfs/시스템 위치로 옮겨야 함. 이미지 재빌드와
-`smoke.sh`/`verify.sh` 재검증이 동반되는 작업이라 별도로 진행 권장.
+스냅샷 갱신 절차: `docker/render/Dockerfile` 수정 → `./scripts/daytona-snapshot.sh <새버전>` →
+`pnpm smoke:daytona`로 검증 → 배포 환경의 `DAYTONA_SNAPSHOT` 교체.
 
 ## 로그 확인
 
