@@ -16,6 +16,12 @@ docker compose up -d --build
 
 `migrate` 서비스가 DB 마이그레이션을 완료한 뒤 `web`·`worker`가 기동됩니다.
 
+`worker` 서비스는 `DAYTONA_API_KEY`가 실제 환경변수로 존재하지 않으면 즉시 기동에 실패한다
+(`DAYTONA_API_KEY가 필요합니다`). Compose는 `.env.local`이 아니라 `.env`/셸 export만 읽으므로,
+운영 환경에서는 systemd `EnvironmentFile`, docker-compose.yml과 같은 위치의 `.env` 파일,
+CI/CD 시크릿 주입 등 배포 환경의 시크릿 관리 방식으로 `docker compose up` 실행 전에 값을
+주입해야 한다. 실제 키 값을 커밋된 파일에 하드코딩하지 말 것.
+
 ## 첫 사용자 등록
 
 브라우저에서 `http://localhost:3000` 접속 후 회원가입합니다.
