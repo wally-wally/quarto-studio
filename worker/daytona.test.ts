@@ -98,7 +98,7 @@ describe("runQuartoRender — 성공/실패", () => {
     const { runQuartoRender } = await importHelper();
 
     await expect(runQuartoRender(baseOpts)).rejects.toThrow("upload broke");
-    expect(mocks.del).toHaveBeenCalled();
+    expect(mocks.del).toHaveBeenCalledWith(mocks.sandbox);
   });
 
   it("DAYTONA_API_KEY 미설정이면 즉시 실패", async () => {
@@ -107,5 +107,76 @@ describe("runQuartoRender — 성공/실패", () => {
 
     await expect(runQuartoRender(baseOpts)).rejects.toThrow("DAYTONA_API_KEY");
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("runQuartoRender — 타임아웃/취소/재시도", () => {
+  it("Daytona측 타임아웃 에러 메시지는 timed_out으로 매핑", async () => {
+    mocks.executeCommand.mockRejectedValue(new Error("Command timed out after 60 seconds"));
+    const { runQuartoRender } = await importHelper();
+    const outcome = await runQuartoRender(baseOpts);
+
+    expect(outcome.kind).toBe("timed_out");
+    expect(mocks.del).toHaveBeenCalled();
+  });
+
+  it("워치독: 실행이 timeoutMs+10s를 넘기면 timed_out", async () => {
+    vi.useFakeTimers();
+    mocks.executeCommand.mockReturnValue(new Promise(() => {})); // 영원히 pending
+    const { runQuartoRender } = await importHelper();
+
+    const pending = runQuartoRender(baseOpts);
+    await vi.advanceTimersByTimeAsync(60_000 + 10_000 + 1);
+    const outcome = await pending;
+
+    expect(outcome.kind).toBe("timed_out");
+    expect(mocks.del).toHaveBeenCalled();
+  });
+
+  it("실행 중 abort되면 canceled + sandbox 삭제", async () => {
+    mocks.executeCommand.mockReturnValue(new Promise(() => {}));
+    const controller = new AbortController();
+    const { runQuartoRender } = await importHelper();
+
+    const pending = runQuartoRender({ ...baseOpts, signal: controller.signal });
+    await Promise.resolve(); // 업로드 마이크로태스크 소진
+    controller.abort();
+    const outcome = await pending;
+
+    expect(outcome).toEqual({ kind: "canceled" });
+    expect(mocks.del).toHaveBeenCalled();
+  });
+
+  it("시작 전에 이미 abort면 sandbox를 만들지 않는다", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const { runQuartoRender } = await importHelper();
+    const outcome = await runQuartoRender({ ...baseOpts, signal: controller.signal });
+
+    expect(outcome).toEqual({ kind: "canceled" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("429 + retry-after<=3초면 대기 후 1회 재시도해 성공", async () => {
+    vi.useFakeTimers();
+    mocks.create
+      .mockRejectedValueOnce({ statusCode: 429, headers: { get: () => "1" } })
+      .mockResolvedValueOnce(mocks.sandbox);
+    const { runQuartoRender } = await importHelper();
+
+    const pending = runQuartoRender(baseOpts);
+    await vi.advanceTimersByTimeAsync(1_000);
+    const outcome = await pending;
+
+    expect(outcome.kind).toBe("success");
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("429 + retry-after가 크면 재시도 없이 혼잡 안내 에러", async () => {
+    mocks.create.mockRejectedValue({ statusCode: 429, headers: { get: () => "30" } });
+    const { runQuartoRender } = await importHelper();
+
+    await expect(runQuartoRender(baseOpts)).rejects.toThrow("혼잡");
+    expect(mocks.create).toHaveBeenCalledTimes(1);
   });
 });
