@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 # 개발 모드 전체 스택 시작 스크립트 (QUICKSTART 경로 B 자동화)
-# 사용: ./dev-start.sh [--skip-render-build]
-#   --skip-render-build : quarto-render:dev 이미지 빌드 건너뜀 (이미 존재하면 자동 스킵)
+# 사용: ./dev-start.sh
 set -euo pipefail
-
-SKIP_RENDER_BUILD=false
-for arg in "$@"; do
-  [[ "$arg" == "--skip-render-build" ]] && SKIP_RENDER_BUILD=true
-done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$ROOT/.dev-logs"
@@ -47,24 +41,19 @@ NODE_VER=$(node -v 2>/dev/null | cut -c2- | cut -d. -f1)
 command -v pnpm >/dev/null 2>&1 || die "pnpm이 없습니다. 'corepack enable && corepack prepare pnpm@9.15.9 --activate' 실행 후 재시도."
 success "사전 조건 OK"
 
-# ── 렌더 이미지 빌드 ──────────────────────────────────────────────────────
-if docker images quarto-render:dev --format "{{.ID}}" | grep -q .; then
-  success "quarto-render:dev 이미지 존재 — 빌드 스킵"
-elif [[ "$SKIP_RENDER_BUILD" == true ]]; then
-  warn "quarto-render:dev 이미지 없음. 렌더 기능은 동작하지 않습니다."
-else
-  info "quarto-render:dev 빌드 시작 (최초 1회, 수십 분 소요)..."
-  docker build -t quarto-render:dev "$ROOT/docker/render" \
-    | tee "$LOG_DIR/render-build.log" \
-    || die "렌더 이미지 빌드 실패. $LOG_DIR/render-build.log 확인."
-  success "quarto-render:dev 빌드 완료"
-fi
-
 # ── .env.local 준비 ───────────────────────────────────────────────────────
 if [[ ! -f "$ROOT/.env.local" ]]; then
   cp "$ROOT/.env.example" "$ROOT/.env.local"
   info ".env.local 생성 (기본값 사용)"
 fi
+
+# ── Daytona 설정 로드 ─────────────────────────────────────────────────────
+# 워커는 dotenv를 읽지 않으므로 .env.local의 변수를 셸로 내보낸다.
+set -a
+# shellcheck source=/dev/null
+source "$ROOT/.env.local"
+set +a
+[[ -n "${DAYTONA_API_KEY:-}" ]] || warn "DAYTONA_API_KEY가 .env.local에 없습니다. 렌더가 실패합니다."
 
 # ── Postgres 기동 ─────────────────────────────────────────────────────────
 info "Postgres 기동 중..."
