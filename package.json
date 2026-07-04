@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
     "worker": "tsx worker/render-worker.ts",
+    "smoke:daytona": "tsx scripts/daytona-smoke.ts",
     "test:db": "node scripts/setup-test-db.mjs",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
