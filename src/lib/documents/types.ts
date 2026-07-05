@@ -56,4 +56,5 @@ export type RenderJobRecord = {
   artifactId: string | null;
   createdAt: string;
   finishedAt: string | null;
+  phase: "preparing" | "executing" | null;
 };

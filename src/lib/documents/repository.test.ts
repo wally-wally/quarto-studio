@@ -147,6 +147,24 @@ describe("document repository", () => {
     expect(job?.artifactId).toBeNull();
   });
 
+  it("phase 컬럼: 초기엔 null, 직접 갱신하면 getRenderJob에 반영된다", async () => {
+    const ownerId = await createTestUser();
+    const doc = await repository.getOrCreateSeedDocument(ownerId);
+    const { jobId } = await repository.enqueueRenderJob({
+      ownerId,
+      documentId: doc.id,
+      contentSnapshot: doc.content,
+      executeCode: false,
+    });
+
+    const initial = await repository.getRenderJob(jobId);
+    expect(initial?.phase).toBeNull();
+
+    await sql`update render_jobs set phase = 'executing' where id = ${jobId}`;
+    const updated = await repository.getRenderJob(jobId);
+    expect(updated?.phase).toBe("executing");
+  });
+
   it("cancelDocumentRenders는 queued/running 잡을 canceled로 표시하고 문서 상태를 idle로 되돌린다", async () => {
     const ownerId = await createTestUser();
     const doc = await repository.getOrCreateSeedDocument(ownerId);
