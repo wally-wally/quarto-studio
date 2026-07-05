@@ -6,6 +6,7 @@ type PreviewPaneProps = {
   document: DocumentRecord;
   isBusy: boolean;
   isRendering: boolean;
+  renderPhase?: "preparing" | "executing" | null;
   onRender: () => void;
   onCancelRender: () => void;
   onDownload: () => void;
@@ -23,10 +24,27 @@ export function formatRenderedAt(iso: string): string {
   );
 }
 
+// 렌더 중/실패 시 현재 단계를 문구로. phase는 worker가 render_jobs.phase에 기록한 값을
+// 폴링으로 그대로 받은 것 — sandbox 준비(preparing)와 코드 실행(executing) 두 단계만 구분한다.
+export function renderPhaseLabel(
+  mode: "running" | "error",
+  phase: "preparing" | "executing" | null
+): string {
+  if (mode === "running") {
+    if (phase === "preparing") return "샌드박스 준비 중...";
+    if (phase === "executing") return "코드 실행 중...";
+    return "렌더링 중...";
+  }
+  if (phase === "preparing") return "샌드박스 준비 중 오류가 발생했습니다";
+  if (phase === "executing") return "코드 실행 중 오류가 발생했습니다";
+  return "";
+}
+
 export function PreviewPane({
   document,
   isBusy,
   isRendering,
+  renderPhase = null,
   onRender,
   onCancelRender,
   onDownload
@@ -85,7 +103,7 @@ export function PreviewPane({
           </button>
           {isRendering ? (
             <span className="rendering-indicator" aria-live="polite">
-              렌더링 중…
+              {renderPhaseLabel("running", renderPhase)}
             </span>
           ) : null}
           {isRendering ? (
@@ -119,7 +137,12 @@ export function PreviewPane({
       {document.renderError ? (
         <div className="render-error" role="alert">
           <AlertCircle size={16} aria-hidden="true" />
-          <pre>{document.renderError}</pre>
+          <div>
+            {renderPhaseLabel("error", renderPhase) ? (
+              <p className="render-error-phase">{renderPhaseLabel("error", renderPhase)}</p>
+            ) : null}
+            <pre>{document.renderError}</pre>
+          </div>
         </div>
       ) : null}
     </section>

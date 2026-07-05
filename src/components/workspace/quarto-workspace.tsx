@@ -61,6 +61,7 @@ export function QuartoWorkspace({
   const [isPending, startTransition] = useTransition();
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [renderPhase, setRenderPhase] = useState<"preparing" | "executing" | null>(null);
   const pollingDocumentIdRef = useRef<string | null>(null);
 
   const actionInput = useMemo<SaveDocumentInput>(
@@ -85,6 +86,7 @@ export function QuartoWorkspace({
   const stopPolling = useCallback(() => {
     setPollingJobId(null);
     setIsPolling(false);
+    setRenderPhase(null);
     pollingDocumentIdRef.current = null;
   }, []);
 
@@ -152,6 +154,8 @@ export function QuartoWorkspace({
           stopPolling();
           return;
         }
+
+        setRenderPhase(job.phase);
 
         if (job.status === "succeeded") {
           // 폴링 중 문서 전환이 없었을 때만 workspace 업데이트
@@ -403,6 +407,7 @@ export function QuartoWorkspace({
           document={draft}
           isBusy={paneBusy}
           isRendering={isRendering}
+          renderPhase={renderPhase}
           onRender={handleRender}
           onCancelRender={handleCancelRender}
           onDownload={handleDownload}

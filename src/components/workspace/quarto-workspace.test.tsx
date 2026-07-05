@@ -418,6 +418,52 @@ describe("QuartoWorkspace", () => {
     });
   });
 
+  it("폴링 중 phase가 preview pane에 반영된다", async () => {
+    vi.useFakeTimers();
+
+    const getRenderJob = vi.fn()
+      .mockResolvedValueOnce({
+        id: "job-1",
+        documentId: "doc-1",
+        status: "running" as const,
+        log: null,
+        artifactId: null,
+        createdAt: "2026-06-24T00:00:00.000Z",
+        finishedAt: null,
+        phase: "preparing" as const
+      })
+      .mockResolvedValueOnce({
+        id: "job-1",
+        documentId: "doc-1",
+        status: "running" as const,
+        log: null,
+        artifactId: null,
+        createdAt: "2026-06-24T00:00:00.000Z",
+        finishedAt: null,
+        phase: "executing" as const
+      });
+
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
+
+    renderWorkspace({ renderDocument, getRenderJob });
+
+    await act(async () => {
+      screen.getByRole("button", { name: "렌더" }).click();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(screen.getByText("샌드박스 준비 중...")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(screen.getByText("코드 실행 중...")).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
   it("상단바의 AI 설정 버튼을 누르면 설정 모달이 열린다", async () => {
     const user = userEvent.setup();
     renderWorkspace();
