@@ -464,6 +464,43 @@ describe("QuartoWorkspace", () => {
     vi.useRealTimers();
   });
 
+  // 회귀 테스트: stopPolling()이 renderPhase를 null로 되돌리던 시절엔, failed/timed_out
+  // 처리 직후 호출되는 stopPolling()이 같은 tick에서 setRenderPhase(job.phase)를 덮어써
+  // 에러 phase 라벨이 영영 표시되지 않았다.
+  it("폴링이 phase가 있는 상태로 실패하면 에러 phase 라벨이 표시된다", async () => {
+    vi.useFakeTimers();
+
+    const getRenderJob = vi.fn().mockResolvedValueOnce({
+      id: "job-1",
+      documentId: "doc-1",
+      status: "failed" as const,
+      log: "execution error: division by zero",
+      artifactId: null,
+      createdAt: "2026-06-24T00:00:00.000Z",
+      finishedAt: "2026-06-24T00:01:00.000Z",
+      phase: "executing" as const
+    });
+
+    const renderDocument = vi.fn(async () => ({ workspace, jobId: "job-1" }));
+
+    renderWorkspace({ renderDocument, getRenderJob });
+
+    await act(async () => {
+      screen.getByRole("button", { name: "렌더" }).click();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
+    expect(
+      screen.getByText("코드 실행 중 오류가 발생했습니다")
+    ).toBeInTheDocument();
+    expect(screen.getByText("execution error: division by zero")).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
   it("상단바의 AI 설정 버튼을 누르면 설정 모달이 열린다", async () => {
     const user = userEvent.setup();
     renderWorkspace();
