@@ -180,3 +180,30 @@ describe("runQuartoRender — 타임아웃/취소/재시도", () => {
     expect(mocks.create).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("runQuartoRender — 단계 콜백", () => {
+  it("preparing은 sandbox 생성 전에, executing은 executeCommand 직전에 호출된다", async () => {
+    const phases: string[] = [];
+    const { runQuartoRender } = await importHelper();
+    await runQuartoRender({ ...baseOpts, onPhaseChange: (phase) => phases.push(phase) });
+
+    expect(phases).toEqual(["preparing", "executing"]);
+  });
+
+  it("콜백을 생략해도 기존 동작 그대로 성공한다", async () => {
+    const { runQuartoRender } = await importHelper();
+    const outcome = await runQuartoRender(baseOpts);
+
+    expect(outcome.kind).toBe("success");
+  });
+
+  it("콜백이 예외를 던져도 렌더는 계속 진행된다", async () => {
+    const { runQuartoRender } = await importHelper();
+    const onPhaseChange = () => {
+      throw new Error("콜백 오류");
+    };
+    const outcome = await runQuartoRender({ ...baseOpts, onPhaseChange });
+
+    expect(outcome.kind).toBe("success");
+  });
+});
