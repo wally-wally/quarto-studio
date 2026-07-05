@@ -75,6 +75,10 @@ async function processJob(job: ClaimedJob): Promise<void> {
       files,
       timeoutMs: TIMEOUT_MS,
       signal: controller.signal,
+      onPhaseChange: (phase) => {
+        // 단계 표시는 부가 정보 — DB 갱신 실패가 렌더를 막으면 안 되므로 fire-and-forget.
+        void sql`update render_jobs set phase = ${phase} where id = ${job.id}`.catch(() => {});
+      },
     });
 
     if (outcome.kind === "canceled") {
