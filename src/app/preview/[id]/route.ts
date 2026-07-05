@@ -10,10 +10,10 @@ const HTML_HEADERS = {
   // 복사 버튼·테마가 적용되지 않아 미리보기가 밋밋해진다. 미리보기는 sandbox(allow-scripts,
   // same-origin 없음)로 격리되고 connect-src는 default-src('self'=opaque)로 묶여 외부 전송이
   // 불가하므로 data: 리소스 허용은 안전하다.
-  // 본문 폰트(Pretendard)는 jsdelivr CDN의 CSS·woff2를 쓰므로 style-src/font-src에 해당 호스트를
-  // 허용한다(스크립트는 허용하지 않아 안전).
+  // 렌더된 아티팩트는 외부 폰트 CDN 없이 시스템 폰트만 사용하도록 렌더 단계에서 정리되었으므로
+  // style-src/font-src에 외부 호스트를 허용할 필요가 없다.
   "Content-Security-Policy":
-    "sandbox allow-scripts; default-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' data:; img-src 'self' data:; font-src 'self' data: https://cdn.jsdelivr.net;",
+    "sandbox allow-scripts; default-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-inline' data:; img-src 'self' data:; font-src 'self' data:;",
 };
 
 export async function GET(
