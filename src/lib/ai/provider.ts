@@ -31,7 +31,8 @@ const ANTHROPIC_ADAPTIVE_THINKING_MODELS = new Set([
   "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",
-  "claude-sonnet-4-6",
+  "claude-sonnet-5", // Sonnet 5는 adaptive가 유일한 thinking 모드
+  "claude-sonnet-4-6", // 목록에서 빠졌지만 저장된 설정에 남아 있을 수 있어 유지
 ]);
 
 export function buildProviderOptions(

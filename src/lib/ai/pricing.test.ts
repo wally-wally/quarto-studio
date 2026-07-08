@@ -3,6 +3,11 @@ import { estimateCostUsd, formatUsd, formatDuration } from "./pricing";
 
 describe("estimateCostUsd", () => {
   it("Anthropic 모델 비용을 입력·출력 요율로 계산한다", () => {
+    // sonnet 5: 인트로 요율 $2/$10 per 1M (2026-08-31까지). 1M 입력 + 1M 출력 = 2 + 10 = 12
+    expect(estimateCostUsd("anthropic", "claude-sonnet-5", { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBe(12);
+  });
+
+  it("모델 목록에서 빠진 구모델(sonnet 4.6)도 과거 사용 이력 비용 표시를 위해 요율을 유지한다", () => {
     // sonnet 4.6: $3/$15 per 1M. 1M 입력 + 1M 출력 = 3 + 15 = 18
     expect(estimateCostUsd("anthropic", "claude-sonnet-4-6", { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBe(18);
   });
@@ -10,6 +15,8 @@ describe("estimateCostUsd", () => {
   it("OpenAI 모델 비용을 계산한다", () => {
     // gpt-5.5: $5/$30 per 1M. 입력 100k($0.5) + 출력 50k($1.5) = 2
     expect(estimateCostUsd("openai", "gpt-5.5", { inputTokens: 100_000, outputTokens: 50_000 })).toBeCloseTo(2, 6);
+    // gpt-5.4-nano: $0.20/$1.25 per 1M. 1M 입력 + 1M 출력 = 0.2 + 1.25 = 1.45
+    expect(estimateCostUsd("openai", "gpt-5.4-nano", { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBeCloseTo(1.45, 6);
   });
 
   it("요금표에 없는 모델은 null을 반환한다", () => {
