@@ -31,6 +31,7 @@ type RenderJobRow = {
   artifact_id: string | null;
   created_at: Date;
   finished_at: Date | null;
+  phase: RenderJobRecord["phase"];
 };
 
 const seedContent = `---
@@ -328,7 +329,7 @@ export function createDocumentRepository(sql: Sql) {
 
     async getRenderJob(jobId: string): Promise<RenderJobRecord | null> {
       const rows = await sql<RenderJobRow[]>`
-        SELECT id, document_id, status, log, artifact_id, created_at, finished_at
+        SELECT id, document_id, status, log, artifact_id, created_at, finished_at, phase
         FROM render_jobs
         WHERE id = ${jobId}
       `;
@@ -341,7 +342,8 @@ export function createDocumentRepository(sql: Sql) {
         log: row.log,
         artifactId: row.artifact_id,
         createdAt: row.created_at.toISOString(),
-        finishedAt: row.finished_at ? row.finished_at.toISOString() : null
+        finishedAt: row.finished_at ? row.finished_at.toISOString() : null,
+        phase: row.phase
       };
     },
 

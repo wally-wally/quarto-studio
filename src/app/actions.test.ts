@@ -161,6 +161,7 @@ describe("document server actions", () => {
       artifactId: null,
       createdAt: "2026-06-24T00:00:00.000Z",
       finishedAt: null,
+      phase: null,
     };
     service.getRenderJob.mockResolvedValue(mockJob);
 

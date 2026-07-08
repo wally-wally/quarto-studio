@@ -1,6 +1,7 @@
 // worker/daytona.ts 단위 테스트: SDK를 mock하여 sandbox 생명주기(생성→업로드→실행→
 // 다운로드→삭제)와 결과 매핑을 검증한다. 실제 Daytona 호출은 scripts/daytona-smoke.ts 담당.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CUSTOM_SCSS } from "../src/lib/quarto/project";
 
 const mocks = vi.hoisted(() => {
   const executeCommand = vi.fn();
@@ -72,7 +73,11 @@ describe("runQuartoRender — 성공/실패", () => {
         labels: { app: "quarto-studio", job: "job-1" },
       }),
     );
-    expect(mocks.uploadFile).toHaveBeenCalledTimes(2);
+    expect(mocks.uploadFile).toHaveBeenCalledTimes(3);
+    expect(mocks.uploadFile).toHaveBeenCalledWith(
+      Buffer.from(CUSTOM_SCSS, "utf8"),
+      "/work/custom.scss",
+    );
     expect(mocks.executeCommand).toHaveBeenCalledWith(
       "quarto render index.qmd --to html",
       "/work",
@@ -178,5 +183,32 @@ describe("runQuartoRender — 타임아웃/취소/재시도", () => {
 
     await expect(runQuartoRender(baseOpts)).rejects.toThrow("혼잡");
     expect(mocks.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("runQuartoRender — 단계 콜백", () => {
+  it("preparing은 sandbox 생성 전에, executing은 executeCommand 직전에 호출된다", async () => {
+    const phases: string[] = [];
+    const { runQuartoRender } = await importHelper();
+    await runQuartoRender({ ...baseOpts, onPhaseChange: (phase) => phases.push(phase) });
+
+    expect(phases).toEqual(["preparing", "executing"]);
+  });
+
+  it("콜백을 생략해도 기존 동작 그대로 성공한다", async () => {
+    const { runQuartoRender } = await importHelper();
+    const outcome = await runQuartoRender(baseOpts);
+
+    expect(outcome.kind).toBe("success");
+  });
+
+  it("콜백이 예외를 던져도 렌더는 계속 진행된다", async () => {
+    const { runQuartoRender } = await importHelper();
+    const onPhaseChange = () => {
+      throw new Error("콜백 오류");
+    };
+    const outcome = await runQuartoRender({ ...baseOpts, onPhaseChange });
+
+    expect(outcome.kind).toBe("success");
   });
 });

@@ -2,6 +2,7 @@
 // 잡당 일회용(ephemeral) sandbox: 생성 → 파일 업로드 → 렌더 → index.html 다운로드 → 삭제.
 // 격리(비루트·네트워크 차단·리소스 제한) 책임은 Daytona로 이관되었다.
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
+import { CUSTOM_SCSS } from "../src/lib/quarto/project";
 
 export type RenderFiles = { indexQmd: string; quartoYml: string };
 
@@ -70,10 +71,21 @@ export async function runQuartoRender(opts: {
   files: RenderFiles;
   timeoutMs: number;
   signal?: AbortSignal;
+  onPhaseChange?: (phase: "preparing" | "executing") => void;
 }): Promise<RenderOutcome> {
-  const { jobId, files, timeoutMs, signal } = opts;
+  const { jobId, files, timeoutMs, signal, onPhaseChange } = opts;
   if (signal?.aborted) return { kind: "canceled" };
 
+  // 단계 표시는 부가 정보다 — 콜백이 던지는 예외가 렌더 자체를 깨면 안 된다.
+  const notifyPhase = (phase: "preparing" | "executing") => {
+    try {
+      onPhaseChange?.(phase);
+    } catch {
+      // 무시
+    }
+  };
+
+  notifyPhase("preparing");
   // getClient()를 sandbox 생성 전에 호출해 API 키 미설정을 조기 실패시킨다.
   const daytona = getClient();
   const sandbox = await createSandbox(jobId);
@@ -84,8 +96,12 @@ export async function runQuartoRender(opts: {
     await sandbox.fs.createFolder(WORK_DIR, "755");
     await sandbox.fs.uploadFile(Buffer.from(files.indexQmd, "utf8"), `${WORK_DIR}/index.qmd`);
     await sandbox.fs.uploadFile(Buffer.from(files.quartoYml, "utf8"), `${WORK_DIR}/_quarto.yml`);
+    // cosmo 테마의 Google Fonts import를 SCSS 단계에서 비활성화(네트워크 차단 sandbox에서
+    // embed-resources가 fetch를 시도하다 실패하며 렌더가 지연되는 것을 방지).
+    await sandbox.fs.uploadFile(Buffer.from(CUSTOM_SCSS, "utf8"), `${WORK_DIR}/custom.scss`);
     if (signal?.aborted) return { kind: "canceled" };
 
+    notifyPhase("executing");
     // 3중 안전망 중 1·2번: Daytona측 timeout 파라미터 + 워커측 워치독.
     // (3번은 sandbox의 autoStopInterval.) 취소는 abort 신호로 즉시 승리시킨다.
     const exec = sandbox.process
