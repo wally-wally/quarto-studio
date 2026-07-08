@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { loadSettings, saveSettings, getActiveCredentials, DEFAULT_SETTINGS } from "./settings";
+import {
+  loadSettings,
+  saveSettings,
+  getActiveCredentials,
+  DEFAULT_SETTINGS,
+  RECOMMENDED_MODELS,
+} from "./settings";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -8,6 +14,16 @@ beforeEach(() => {
 describe("settings", () => {
   it("저장값이 없으면 기본값을 반환한다", () => {
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("Anthropic 추천 모델 목록은 Sonnet 5를 포함하고 Sonnet 4.6은 제외한다", () => {
+    const values = RECOMMENDED_MODELS.anthropic.map((m) => m.value);
+    expect(values).toContain("claude-sonnet-5");
+    expect(values).not.toContain("claude-sonnet-4-6");
+  });
+
+  it("Anthropic 기본 모델은 Sonnet 5다", () => {
+    expect(DEFAULT_SETTINGS.anthropic.model).toBe("claude-sonnet-5");
   });
 
   it("저장 후 로드하면 라운드트립된다", () => {

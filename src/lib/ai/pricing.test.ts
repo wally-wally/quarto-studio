@@ -3,6 +3,11 @@ import { estimateCostUsd, formatUsd, formatDuration } from "./pricing";
 
 describe("estimateCostUsd", () => {
   it("Anthropic 모델 비용을 입력·출력 요율로 계산한다", () => {
+    // sonnet 5: 인트로 요율 $2/$10 per 1M (2026-08-31까지). 1M 입력 + 1M 출력 = 2 + 10 = 12
+    expect(estimateCostUsd("anthropic", "claude-sonnet-5", { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBe(12);
+  });
+
+  it("모델 목록에서 빠진 구모델(sonnet 4.6)도 과거 사용 이력 비용 표시를 위해 요율을 유지한다", () => {
     // sonnet 4.6: $3/$15 per 1M. 1M 입력 + 1M 출력 = 3 + 15 = 18
     expect(estimateCostUsd("anthropic", "claude-sonnet-4-6", { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBe(18);
   });

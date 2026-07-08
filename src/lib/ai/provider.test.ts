@@ -5,8 +5,10 @@ describe("buildProviderOptions", () => {
   it("openai는 reasoningEffort medium", () => {
     expect(buildProviderOptions("openai", "gpt-5.5")).toEqual({ openai: { reasoningEffort: "medium" } });
   });
-  it("adaptive 지원 Anthropic 모델은 adaptive thinking을 쓴다(Opus 4.8 포함)", () => {
+  it("adaptive 지원 Anthropic 모델은 adaptive thinking을 쓴다(Opus 4.8·Sonnet 5 포함)", () => {
     expect(buildProviderOptions("anthropic", "claude-opus-4-8")).toEqual({ anthropic: { thinking: { type: "adaptive" } } });
+    expect(buildProviderOptions("anthropic", "claude-sonnet-5")).toEqual({ anthropic: { thinking: { type: "adaptive" } } });
+    // 저장된 설정에 남아 있을 수 있는 구모델도 계속 지원한다.
     expect(buildProviderOptions("anthropic", "claude-sonnet-4-6")).toEqual({ anthropic: { thinking: { type: "adaptive" } } });
   });
   it("adaptive 미지원 모델(haiku)은 thinking을 설정하지 않는다", () => {
