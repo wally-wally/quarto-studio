@@ -11,9 +11,9 @@ export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: stri
   // AI Hub는 /v1/models에서 모델을 동적으로 불러오므로 정적 폴백을 두지 않는다.
   aihub: [],
   anthropic: [
-    { label: "Claude Opus 4.8 (고품질)", value: "claude-opus-4-8" },
-    { label: "Claude Sonnet 5 (균형, 추천)", value: "claude-sonnet-5" },
-    { label: "Claude Haiku 4.5 (빠름)", value: "claude-haiku-4-5" },
+    { label: "Claude Opus 4.8", value: "claude-opus-4-8" },
+    { label: "Claude Sonnet 5", value: "claude-sonnet-5" },
+    { label: "Claude Haiku 4.5", value: "claude-haiku-4-5" },
   ],
   openai: [
     { label: "GPT-5.5 Pro", value: "gpt-5.5-pro" },
@@ -21,7 +21,7 @@ export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: stri
     { label: "GPT-5.4 Pro", value: "gpt-5.4-pro" },
     { label: "GPT-5.4", value: "gpt-5.4" },
     { label: "GPT-5.4 mini", value: "gpt-5.4-mini" },
-    { label: "GPT-5.4 nano (초경량)", value: "gpt-5.4-nano" },
+    { label: "GPT-5.4 nano", value: "gpt-5.4-nano" },
   ],
 };
 
