@@ -70,10 +70,21 @@ export async function runQuartoRender(opts: {
   files: RenderFiles;
   timeoutMs: number;
   signal?: AbortSignal;
+  onPhaseChange?: (phase: "preparing" | "executing") => void;
 }): Promise<RenderOutcome> {
-  const { jobId, files, timeoutMs, signal } = opts;
+  const { jobId, files, timeoutMs, signal, onPhaseChange } = opts;
   if (signal?.aborted) return { kind: "canceled" };
 
+  // 단계 표시는 부가 정보다 — 콜백이 던지는 예외가 렌더 자체를 깨면 안 된다.
+  const notifyPhase = (phase: "preparing" | "executing") => {
+    try {
+      onPhaseChange?.(phase);
+    } catch {
+      // 무시
+    }
+  };
+
+  notifyPhase("preparing");
   // getClient()를 sandbox 생성 전에 호출해 API 키 미설정을 조기 실패시킨다.
   const daytona = getClient();
   const sandbox = await createSandbox(jobId);
@@ -86,6 +97,7 @@ export async function runQuartoRender(opts: {
     await sandbox.fs.uploadFile(Buffer.from(files.quartoYml, "utf8"), `${WORK_DIR}/_quarto.yml`);
     if (signal?.aborted) return { kind: "canceled" };
 
+    notifyPhase("executing");
     // 3중 안전망 중 1·2번: Daytona측 timeout 파라미터 + 워커측 워치독.
     // (3번은 sandbox의 autoStopInterval.) 취소는 abort 신호로 즉시 승리시킨다.
     const exec = sandbox.process

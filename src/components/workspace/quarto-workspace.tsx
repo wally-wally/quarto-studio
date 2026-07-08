@@ -61,6 +61,7 @@ export function QuartoWorkspace({
   const [isPending, startTransition] = useTransition();
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [renderPhase, setRenderPhase] = useState<"preparing" | "executing" | null>(null);
   const pollingDocumentIdRef = useRef<string | null>(null);
 
   const actionInput = useMemo<SaveDocumentInput>(
@@ -82,6 +83,10 @@ export function QuartoWorkspace({
   const toActionErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
 
+  // stopPolling은 취소/성공/실패(에러)/문서 전환/잡 소실 등 여러 상황에서 호출된다.
+  // 여기서 renderPhase까지 null로 밀어버리면, 실패 처리 직후 같은 tick에서 배치된
+  // setRenderPhase(job.phase) 호출을 덮어써 에러 라벨이 영영 안 뜨는 문제가 생긴다.
+  // 그래서 phase 초기화는 "새로 시작"이 명확한 지점(렌더 시작/취소/문서 전환)에서만 한다.
   const stopPolling = useCallback(() => {
     setPollingJobId(null);
     setIsPolling(false);
@@ -90,6 +95,8 @@ export function QuartoWorkspace({
 
   const handleRender = () => {
     setActionError(null);
+    // 새 렌더를 시작하므로 이전 잡의 phase가 잠깐이라도 남아 보이지 않도록 초기화한다.
+    setRenderPhase(null);
     startTransition(async () => {
       try {
         const { workspace: nextWorkspace, jobId } = await renderDocument(actionInput);
@@ -108,6 +115,8 @@ export function QuartoWorkspace({
   const handleCancelRender = () => {
     setActionError(null);
     stopPolling();
+    // idle로 돌아가는 것이므로 phase도 함께 비워 상태를 깨끗하게 유지한다.
+    setRenderPhase(null);
     startTransition(async () => {
       try {
         applyWorkspace(await cancelRender(draft.id));
@@ -152,6 +161,8 @@ export function QuartoWorkspace({
           stopPolling();
           return;
         }
+
+        setRenderPhase(job.phase);
 
         if (job.status === "succeeded") {
           // 폴링 중 문서 전환이 없었을 때만 workspace 업데이트
@@ -272,6 +283,8 @@ export function QuartoWorkspace({
       return;
     }
     stopPolling();
+    // 문서를 전환하므로 이전 문서의 phase가 새로 선택된 문서의 렌더 표시에 섞이지 않도록 초기화한다.
+    setRenderPhase(null);
     // 다른 문서로 이동하면 AI 작성 드로어를 닫는다(입력/첨부는 key 리마운트로 초기화).
     setAiDrawerOpen(false);
     setActionError(null);
@@ -403,6 +416,7 @@ export function QuartoWorkspace({
           document={draft}
           isBusy={paneBusy}
           isRendering={isRendering}
+          renderPhase={renderPhase}
           onRender={handleRender}
           onCancelRender={handleCancelRender}
           onDownload={handleDownload}

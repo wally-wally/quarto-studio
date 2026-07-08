@@ -296,6 +296,7 @@ describe("document service", () => {
       artifactId: null,
       createdAt: baseTimestamp,
       finishedAt: null,
+      phase: null,
     };
     repository.getRenderJob.mockResolvedValueOnce(mockJob);
     const service = createDocumentService({ repository });
