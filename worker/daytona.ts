@@ -16,6 +16,15 @@ const WORK_DIR = "/work";
 // Daytona측 executeCommand 타임아웃이 안 먹었을 때를 대비한 워커측 감시 여유분.
 const WATCHDOG_EXTRA_MS = 10_000;
 
+// networkBlockAll sandbox에서 외부 리소스 fetch가 DNS 타임아웃까지 수 초씩 매달리는
+// 것을 방지: resolver를 루프백으로 돌려 모든 DNS 조회를 즉시 실패시킨다.
+// (예: Jupyter 셀이 text/html을 출력하면 Quarto가 jquery/require.js CDN 태그를
+// 주입하고, embed-resources 때문에 pandoc이 이를 fetch하려다 URL당 ~2.5초 낭비.)
+// resolv.conf 쓰기가 실패해도 렌더 자체는 계속한다 — 느려질 뿐 결과는 동일하다.
+const RENDER_COMMAND =
+  "printf 'nameserver 127.0.0.1\\noptions timeout:1 attempts:1\\n' > /etc/resolv.conf 2>/dev/null || true; " +
+  "quarto render index.qmd --to html";
+
 let client: Daytona | null = null;
 
 function getClient(): Daytona {
@@ -106,7 +115,7 @@ export async function runQuartoRender(opts: {
     // (3번은 sandbox의 autoStopInterval.) 취소는 abort 신호로 즉시 승리시킨다.
     const exec = sandbox.process
       .executeCommand(
-        "quarto render index.qmd --to html",
+        RENDER_COMMAND,
         WORK_DIR,
         undefined,
         Math.ceil(timeoutMs / 1000),
