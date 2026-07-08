@@ -78,8 +78,12 @@ describe("runQuartoRender — 성공/실패", () => {
       Buffer.from(CUSTOM_SCSS, "utf8"),
       "/work/custom.scss",
     );
+    // DNS fast-fail 셋업이 quarto render보다 먼저 와야 한다 — 차단된 네트워크에서
+    // 외부 리소스 fetch(jquery/require.js 등)가 DNS 타임아웃까지 매달리는 것을 방지.
     expect(mocks.executeCommand).toHaveBeenCalledWith(
-      "quarto render index.qmd --to html",
+      expect.stringMatching(
+        /nameserver 127\.0\.0\.1[\s\S]*quarto render index\.qmd --to html/,
+      ),
       "/work",
       undefined,
       60,
