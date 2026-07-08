@@ -22,6 +22,11 @@ describe("settings", () => {
     expect(values).not.toContain("claude-sonnet-4-6");
   });
 
+  it("OpenAI 추천 모델 목록은 GPT-5.4 nano를 포함한다", () => {
+    const values = RECOMMENDED_MODELS.openai.map((m) => m.value);
+    expect(values).toContain("gpt-5.4-nano");
+  });
+
   it("Anthropic 기본 모델은 Sonnet 5다", () => {
     expect(DEFAULT_SETTINGS.anthropic.model).toBe("claude-sonnet-5");
   });

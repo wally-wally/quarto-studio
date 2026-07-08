@@ -15,6 +15,8 @@ describe("estimateCostUsd", () => {
   it("OpenAI 모델 비용을 계산한다", () => {
     // gpt-5.5: $5/$30 per 1M. 입력 100k($0.5) + 출력 50k($1.5) = 2
     expect(estimateCostUsd("openai", "gpt-5.5", { inputTokens: 100_000, outputTokens: 50_000 })).toBeCloseTo(2, 6);
+    // gpt-5.4-nano: $0.20/$1.25 per 1M. 1M 입력 + 1M 출력 = 0.2 + 1.25 = 1.45
+    expect(estimateCostUsd("openai", "gpt-5.4-nano", { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBeCloseTo(1.45, 6);
   });
 
   it("요금표에 없는 모델은 null을 반환한다", () => {

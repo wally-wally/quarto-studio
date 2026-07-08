@@ -21,6 +21,7 @@ export const RECOMMENDED_MODELS: Record<AiProvider, { label: string; value: stri
     { label: "GPT-5.4 Pro", value: "gpt-5.4-pro" },
     { label: "GPT-5.4", value: "gpt-5.4" },
     { label: "GPT-5.4 mini", value: "gpt-5.4-mini" },
+    { label: "GPT-5.4 nano (초경량)", value: "gpt-5.4-nano" },
   ],
 };
 
