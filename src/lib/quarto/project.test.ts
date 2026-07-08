@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuartoProjectFiles, buildQuartoRenderCommand } from "./project";
+import { buildQuartoProjectFiles, buildQuartoRenderCommand, CUSTOM_SCSS } from "./project";
 
 describe("buildQuartoProjectFiles", () => {
   it("코드 실행이 꺼진 문서는 전역 execute.eval false 없이 렌더링한다", () => {
@@ -69,15 +69,25 @@ describe("buildQuartoProjectFiles", () => {
     );
   });
 
-  it("본문 폰트를 Pretendard CDN으로 주입한다(미리보기·다운로드 공통 산출물)", () => {
+  it("Pretendard CDN을 쓰지 않고 시스템 폰트로 폴백한다(네트워크 차단 sandbox에서 fetch 실패 방지)", () => {
     const files = buildQuartoProjectFiles({ content: "# Hello", executeCode: false });
 
+    expect(files.quartoYml).not.toContain("cdn.jsdelivr.net");
+    expect(files.quartoYml).not.toContain("Pretendard");
     expect(files.quartoYml).toContain(
-      "cdn.jsdelivr.net/gh/orioncactus/pretendard",
+      '--bs-body-font-family: -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;',
     );
-    expect(files.quartoYml).toContain(
-      '--bs-body-font-family: "Pretendard Variable"',
-    );
+  });
+
+  it("cosmo 테마의 Google Fonts import를 막기 위해 custom.scss를 theme 리스트 맨 앞에 둔다", () => {
+    const files = buildQuartoProjectFiles({ content: "# Hello", executeCode: false });
+
+    expect(files.quartoYml).toContain("theme: [custom.scss, cosmo]");
+  });
+
+  it("CUSTOM_SCSS는 $web-font-path를 false로 오버라이드하는 scss:rules 블록이다", () => {
+    expect(CUSTOM_SCSS).toContain("/*-- scss:rules --*/");
+    expect(CUSTOM_SCSS).toContain("$web-font-path: false;");
   });
 });
 

@@ -1,6 +1,7 @@
 // worker/daytona.ts 단위 테스트: SDK를 mock하여 sandbox 생명주기(생성→업로드→실행→
 // 다운로드→삭제)와 결과 매핑을 검증한다. 실제 Daytona 호출은 scripts/daytona-smoke.ts 담당.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CUSTOM_SCSS } from "../src/lib/quarto/project";
 
 const mocks = vi.hoisted(() => {
   const executeCommand = vi.fn();
@@ -72,7 +73,11 @@ describe("runQuartoRender — 성공/실패", () => {
         labels: { app: "quarto-studio", job: "job-1" },
       }),
     );
-    expect(mocks.uploadFile).toHaveBeenCalledTimes(2);
+    expect(mocks.uploadFile).toHaveBeenCalledTimes(3);
+    expect(mocks.uploadFile).toHaveBeenCalledWith(
+      Buffer.from(CUSTOM_SCSS, "utf8"),
+      "/work/custom.scss",
+    );
     expect(mocks.executeCommand).toHaveBeenCalledWith(
       "quarto render index.qmd --to html",
       "/work",
